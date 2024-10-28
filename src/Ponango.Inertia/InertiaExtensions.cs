@@ -22,25 +22,30 @@ namespace Ponango.Inertia
             return sb.ToString().ToLower();
         }
 
-        public static InertiaResult Inertia<T>(this InertiaContext context,string viewName, T model, string? component = null,
-            string? assetVersion = null)
+        public static InertiaResult Inertia<T>(this InertiaContext context, string viewName,  T model, string component, string propsName = "data")
         {
             if (string.IsNullOrWhiteSpace(component))
             {
                 component = typeof(T).Name;
             }
 
-            if (string.IsNullOrWhiteSpace(assetVersion))
-            {
-                var version = typeof(T).Assembly.GetName().Version;
-                assetVersion = InertiaExtensions.CreateMd5Hash(version != null ? version.ToString() : "1.0.0");
-            }
-
-            return new InertiaResult(component, assetVersion)
+            var result = new InertiaResult(component, context.AssetVersionProvider.GetAssetVersion())
             {
                 ViewName = viewName,
-                Url = context.Request?.Path
+                Url = context.Request?.Path,
+                InertiaContext = context
             };
+
+            if (model != null)
+            {
+                result.Props.Add(propsName, model);
+            }
+            else
+            {
+                result.Props.Add(propsName, new { });
+            }
+
+            return result;
         }
     }
 }

@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Http;
 
 namespace Ponango.Inertia;
@@ -6,22 +5,26 @@ namespace Ponango.Inertia;
 public class InertiaContext
 {
     private InertiaRequestHeaders? headers;
-    private HttpContext? httpContext;
+    private readonly HttpContext? httpContext;
     private bool? isInertia;
+
+    internal IAssetVersionProvider AssetVersionProvider { get; }
 
     public bool IsInertia => isInertia ??= IsInertiaRequest();
 
     public InertiaRequestHeaders Headers => headers ??= GetInertiaHeaders();
+
     public HttpRequest? Request => httpContext?.Request;
 
-    public InertiaContext(IHttpContextAccessor httpContextAccessor)
+    public InertiaContext(IHttpContextAccessor httpContextAccessor, IAssetVersionProvider assetVersionProvider) : this(httpContextAccessor.HttpContext!, assetVersionProvider)
     {
-        this.httpContext = httpContextAccessor.HttpContext;
     }
 
-    public InertiaContext(HttpContext httpContext)
+
+    public InertiaContext(HttpContext httpContext, IAssetVersionProvider assetVersionProvider)
     {
         this.httpContext = httpContext;
+        AssetVersionProvider = assetVersionProvider;
     }
 
     bool IsInertiaRequest()

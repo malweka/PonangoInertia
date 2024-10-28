@@ -30,6 +30,9 @@ namespace Ponango.Inertia
         public string AssetsVersion { get; }
         public string Component { get; }
         public string? Url { get; set; }
+        public IDictionary<string, object> Props { get; set; } = new Dictionary<string, object>();
+
+        internal InertiaContext InertiaContext { get; set; }
 
         public async Task ExecuteResultAsync(ActionContext context)
         {
@@ -41,9 +44,7 @@ namespace Ponango.Inertia
             if (string.IsNullOrWhiteSpace(Url))
                 Url = request.Path;
 
-            var inertiaRequest = new InertiaContext(context.HttpContext);
-
-            if (!inertiaRequest.IsInertia)
+            if (!InertiaContext.IsInertia)
             {
                 var viewData = ViewData;
                 viewData.Model = GetPageModel();
@@ -57,7 +58,7 @@ namespace Ponango.Inertia
                 return;
             }
 
-            if (!AssetsVersion.Equals(inertiaRequest.Headers.Version, StringComparison.InvariantCultureIgnoreCase))
+            if (!AssetsVersion.Equals(InertiaContext.Headers.Version, StringComparison.InvariantCultureIgnoreCase))
             {
                 IServiceProvider serviceProvider = context.HttpContext.RequestServices;
                 IUrlHelperFactory urlHelpFactory = serviceProvider.GetRequiredService<IUrlHelperFactory>();
@@ -81,6 +82,9 @@ namespace Ponango.Inertia
                 Content = GetPageModel().ToJson()
             };
 
+            context.HttpContext.Response.Headers["Vary"] = "X-Inertia";
+            context.HttpContext.Response.Headers["X-Inertia"] = "true";
+
             await contentResult.ExecuteResultAsync(context);
         }
 
@@ -91,7 +95,7 @@ namespace Ponango.Inertia
                 Component = Component,
                 Url = Url,
                 Version = AssetsVersion,
-                Props = ViewData.Model
+                Props = Props
             };
         }
     }

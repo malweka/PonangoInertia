@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace Ponango.Inertia
 {
@@ -58,11 +59,15 @@ namespace Ponango.Inertia
                 return;
             }
 
+            IServiceProvider serviceProvider = context.HttpContext.RequestServices;
+            IJsonSerializerOptionBuilder jsonSerializerOptionBuilder = serviceProvider.GetRequiredService<IJsonSerializerOptionBuilder>();
+
             if (!AssetsVersion.Equals(InertiaContext.Headers.Version, StringComparison.InvariantCultureIgnoreCase))
             {
-                IServiceProvider serviceProvider = context.HttpContext.RequestServices;
+                
                 IUrlHelperFactory urlHelpFactory = serviceProvider.GetRequiredService<IUrlHelperFactory>();
                 IUrlHelper urlHelper = urlHelpFactory.GetUrlHelper(context);
+                
 
                 string redirectUri = Url;
                 if (urlHelper.IsLocalUrl(redirectUri))
@@ -79,7 +84,7 @@ namespace Ponango.Inertia
             {
                 ContentType = "application/json",
                 StatusCode = 200,
-                Content = GetPageModel().ToJson()
+                Content = GetPageModel().ToJson(jsonSerializerOptionBuilder)
             };
 
             context.HttpContext.Response.Headers["Vary"] = "X-Inertia";

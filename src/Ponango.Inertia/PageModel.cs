@@ -10,23 +10,24 @@ namespace Ponango.Inertia
         public string Version { get; set; }
         public object Props { get; set; }
 
-        public string ToJson()
+        public string ToJson(IJsonSerializerOptionBuilder serializerOptions)
         {
+            if (SerializerOptions == null)
+            {
+                SerializerOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                    WriteIndented = false,
+                    ReferenceHandler = ReferenceHandler.IgnoreCycles
+                };
+                serializerOptions.SetSerializerOptions(SerializerOptions);
+            }
+            
             return JsonSerializer.Serialize(this, SerializerOptions);
         }
 
-        private static JsonSerializerOptions SerializerOptions { get; }
+        private static JsonSerializerOptions? SerializerOptions { get; set; }
 
-        static PageModel()
-        {
-            var jsonOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                WriteIndented = false,
-                ReferenceHandler = ReferenceHandler.IgnoreCycles
-            };
-            SerializerOptions = jsonOptions;
-        }
     }
 }

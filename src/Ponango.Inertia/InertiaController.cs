@@ -1,5 +1,6 @@
 using System;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ponango.Inertia
 {
@@ -22,10 +23,11 @@ namespace Ponango.Inertia
                 else component = typeName;
             }
 
+            var inertiaContext = HttpContext.RequestServices.GetRequiredService<InertiaContext>();
+
             if (string.IsNullOrWhiteSpace(assetVersion))
             {
-                var version = typeof(T).Assembly.GetName().Version;
-                assetVersion = InertiaExtensions.CreateMd5Hash(version != null ? version.ToString() : "1.0.0");
+                assetVersion = inertiaContext.AssetVersionProvider.GetAssetVersion();
             }
 
             ViewData.Model = model;
@@ -33,7 +35,8 @@ namespace Ponango.Inertia
             {
                 ViewData = ViewData,
                 ViewName = viewName,
-                Url = HttpContext.Request.Path
+                Url = HttpContext.Request.Path,
+                InertiaContext = inertiaContext
             };
         }
     }

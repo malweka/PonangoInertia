@@ -55,6 +55,7 @@ public class InertiaContext
         httpContext.Request.Headers.TryGetValue("X-Requested-With", out var requestedWith);
         httpContext.Request.Headers.TryGetValue("X-Inertia-Version", out var version);
         httpContext.Request.Headers.TryGetValue("X-Inertia-Partial-Data", out var partData);
+        httpContext.Request.Headers.TryGetValue("X-Inertia-Partial-Except", out var partExcept);
         httpContext.Request.Headers.TryGetValue("X-Inertia-Partial-Component", out var partComponent);
 
         return new InertiaRequestHeaders
@@ -62,6 +63,7 @@ public class InertiaContext
             RequestedWith = requestedWith,
             Version = version,
             PartialData = partData,
+            PartialExcept = partExcept,
             PartialComponent = partComponent
         };
     }

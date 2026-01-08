@@ -36,7 +36,7 @@ namespace Ponango.Inertia
         public string? Url { get; set; }
         public IDictionary<string, object> Props { get; set; } = new Dictionary<string, object>();
 
-        internal InertiaContext InertiaContext { get; set; }
+        internal InertiaContext InertiaContext { get; set; } = null!;
 
         public InertiaResult WithErrors(ModelStateDictionary modelState)
         {
@@ -48,8 +48,7 @@ namespace Ponango.Inertia
                 var entry = modelState[key];
                 if (entry.Errors.Count > 0)
                 {
-                    // Inertia expects a flat key-value pair for errors.
-                    // We take the first error message.
+                    // Inertia expects flat key-value pairs for errors
                     errors[key] = entry.Errors[0].ErrorMessage;
                 }
             }
@@ -124,7 +123,6 @@ namespace Ponango.Inertia
         {
             var props = new Dictionary<string, object>(Props);
 
-            // Merge Shared Props
             if (InertiaContext.SharedProps != null)
             {
                 foreach (var kvp in InertiaContext.SharedProps)
@@ -136,34 +134,52 @@ namespace Ponango.Inertia
                 }
             }
 
-            // Logic for Partial Reloads
-            var partialData = InertiaContext.Headers.PartialData?.Split(',').Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
             var partialComponent = InertiaContext.Headers.PartialComponent;
+            var isPartialRequest = !fullVisit &&
+                                   !string.IsNullOrEmpty(partialComponent) &&
+                                   partialComponent == Component;
 
-            var isPartial = !fullVisit &&
-                            !string.IsNullOrEmpty(partialComponent) &&
-                            partialComponent == Component &&
-                            partialData != null &&
-                            partialData.Any();
-
-            if (isPartial)
+            if (isPartialRequest)
             {
-                // Only keep requested keys
-                var keysToRemove = props.Keys.Except(partialData).ToList();
-                foreach (var key in keysToRemove)
+                var partialData = InertiaContext.Headers.PartialData?
+                    .Split(',')
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim())
+                    .ToList();
+
+                var partialExcept = InertiaContext.Headers.PartialExcept?
+                    .Split(',')
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim())
+                    .ToList();
+
+                if (partialData != null && partialData.Any())
                 {
-                    props.Remove(key);
+                    // Include mode: keep only requested keys, but always preserve "errors"
+                    var keysToKeep = new HashSet<string>(partialData);
+                    if (props.ContainsKey("errors"))
+                    {
+                        keysToKeep.Add("errors");
+                    }
+                    var keysToRemove = props.Keys.Where(k => !keysToKeep.Contains(k)).ToList();
+                    foreach (var key in keysToRemove)
+                    {
+                        props.Remove(key);
+                    }
+                }
+                else if (partialExcept != null && partialExcept.Any())
+                {
+                    // Exclude mode: remove specified keys (but never remove "errors")
+                    var keysToRemove = partialExcept.Where(k => k != "errors").ToList();
+                    foreach (var key in keysToRemove)
+                    {
+                        props.Remove(key);
+                    }
                 }
             }
             else
             {
-                // Full visit (or partial for another component): remove LazyProp unless explicitly requested (which it isn't here)
-                // Actually, standard behavior:
-                // Full visit: Lazy props are NOT included.
-                // Partial visit (no match): Lazy props are NOT included.
-                // Partial visit (match): Lazy props ARE included ONLY if requested.
-
-                // So here, we remove all LazyProps
+                // Full visit: lazy props are only evaluated when explicitly requested in partial reloads
                 var lazyKeys = props.Where(kvp => kvp.Value is LazyProp).Select(kvp => kvp.Key).ToList();
                 foreach (var key in lazyKeys)
                 {

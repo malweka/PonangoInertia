@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 
 namespace Ponango.Inertia;
@@ -16,6 +17,8 @@ public class InertiaContext
 
     public HttpRequest? Request => httpContext?.Request;
 
+    public IDictionary<string, object> SharedProps { get; } = new Dictionary<string, object>();
+
     public InertiaContext(IHttpContextAccessor httpContextAccessor, IAssetVersionProvider assetVersionProvider) : this(httpContextAccessor.HttpContext!, assetVersionProvider)
     {
     }
@@ -25,6 +28,11 @@ public class InertiaContext
     {
         this.httpContext = httpContext;
         AssetVersionProvider = assetVersionProvider;
+    }
+
+    public void Share(string key, object value)
+    {
+        SharedProps[key] = value;
     }
 
     bool IsInertiaRequest()

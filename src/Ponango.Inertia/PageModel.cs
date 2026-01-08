@@ -12,22 +12,17 @@ namespace Ponango.Inertia
 
         public string ToJson(IJsonSerializerOptionBuilder serializerOptions)
         {
-            if (SerializerOptions == null)
+            var options = new JsonSerializerOptions
             {
-                SerializerOptions = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                    WriteIndented = false,
-                    ReferenceHandler = ReferenceHandler.IgnoreCycles
-                };
-                serializerOptions.SetSerializerOptions(SerializerOptions);
-            }
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                WriteIndented = false,
+                ReferenceHandler = ReferenceHandler.IgnoreCycles
+            };
             
-            return JsonSerializer.Serialize(this, SerializerOptions);
+            serializerOptions.SetSerializerOptions(options);
+
+            return JsonSerializer.Serialize(this, options);
         }
-
-        private static JsonSerializerOptions? SerializerOptions { get; set; }
-
     }
 }

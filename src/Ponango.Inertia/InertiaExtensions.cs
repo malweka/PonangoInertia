@@ -1,5 +1,7 @@
 using System.Text;
+using System.Reflection;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Ponango.Inertia
 {
@@ -22,6 +24,40 @@ namespace Ponango.Inertia
             return sb.ToString().ToLower();
         }
 
+        public static InertiaResult Render<T>(
+            this InertiaContext context,
+            string component,
+            T props,
+            string? viewName = null,
+            string? assetVersion = null)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            ArgumentException.ThrowIfNullOrWhiteSpace(component);
+
+            assetVersion ??= context.AssetVersionProvider.GetAssetVersion();
+
+            var result = new InertiaResult(component, assetVersion)
+            {
+                ViewName = viewName,
+                Url = context.Request?.Path,
+                InertiaContext = context
+            };
+
+            foreach (var prop in ToPropsDictionary(props))
+                result.Props[prop.Key] = prop.Value;
+
+            return result;
+        }
+
+        public static IActionResult Location(this InertiaContext context, string url)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            ArgumentException.ThrowIfNullOrWhiteSpace(url);
+
+            return new InertiaLocationResult(context, url);
+        }
+
+        [Obsolete("Use Render() instead.")]
         public static InertiaResult Inertia<T>(this InertiaContext context, string viewName,  T model, string component, string propsName = "data")
         {
             if (string.IsNullOrWhiteSpace(component))
@@ -46,6 +82,64 @@ namespace Ponango.Inertia
             }
 
             return result;
+        }
+
+        static IDictionary<string, object> ToPropsDictionary<T>(T props)
+        {
+            if (props == null)
+                return new Dictionary<string, object>(StringComparer.Ordinal);
+
+            if (props is IDictionary<string, object> dictionary)
+                return new Dictionary<string, object>(dictionary, StringComparer.Ordinal);
+
+            if (props is IDictionary<string, object?> nullableDictionary)
+            {
+                return nullableDictionary.ToDictionary(
+                    entry => entry.Key,
+                    entry => entry.Value!,
+                    StringComparer.Ordinal);
+            }
+
+            var type = props.GetType();
+            var result = new Dictionary<string, object>(StringComparer.Ordinal);
+            foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (!property.CanRead || property.GetIndexParameters().Length > 0)
+                    continue;
+
+                result[property.Name] = property.GetValue(props)!;
+            }
+
+            return result;
+        }
+
+        private sealed class InertiaLocationResult : IActionResult
+        {
+            private readonly InertiaContext _context;
+            private readonly string _url;
+
+            public InertiaLocationResult(InertiaContext context, string url)
+            {
+                _context = context;
+                _url = url;
+            }
+
+            public Task ExecuteResultAsync(ActionContext context)
+            {
+                var location = ResolveLocation(context.HttpContext, _url);
+                context.HttpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+                context.HttpContext.Response.Headers["X-Inertia-Location"] = location;
+                return Task.CompletedTask;
+            }
+
+            static string ResolveLocation(HttpContext httpContext, string url)
+            {
+                if (Uri.TryCreate(url, UriKind.Absolute, out var absolute))
+                    return absolute.ToString();
+
+                var baseUri = new Uri($"{httpContext.Request.Scheme}://{httpContext.Request.Host}");
+                return new Uri(baseUri, url).ToString();
+            }
         }
     }
 }

@@ -5,10 +5,51 @@ namespace Ponango.Inertia
 {
     public class PageModel
     {
-        public string Component { get; set; }
-        public string Url { get; set; }
-        public string Version { get; set; }
-        public object Props { get; set; }
+        // Core properties (always present)
+        public string Component { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public string Version { get; set; } = string.Empty;
+        public object Props { get; set; } = new { };
+
+        // History management (v2/v3 - only serialized when true)
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? EncryptHistory { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? ClearHistory { get; set; }
+
+        // Navigation (v2/v3)
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? PreserveFragment { get; set; }
+
+        // Merge props (v2/v3 - controls how client merges data during navigation)
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? MergeProps { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? PrependProps { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? DeepMergeProps { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? MatchPropsOn { get; set; }
+
+        // Infinite scroll (v2/v3)
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Dictionary<string, object>? ScrollProps { get; set; }
+
+        // Deferred props (v2/v3 - group name -> list of prop keys)
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Dictionary<string, List<string>>? DeferredProps { get; set; }
+
+        // Shared props (v2/v3 - top-level prop keys registered via Share())
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? SharedProps { get; set; }
+
+        // Once props (v2/v3 - props resolved once and cached client-side)
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Dictionary<string, object>? OnceProps { get; set; }
 
         public string ToJson(IJsonSerializerOptionBuilder serializerOptions)
         {
@@ -19,7 +60,7 @@ namespace Ponango.Inertia
                 WriteIndented = false,
                 ReferenceHandler = ReferenceHandler.IgnoreCycles
             };
-            
+
             serializerOptions.SetSerializerOptions(options);
 
             return JsonSerializer.Serialize(this, options);

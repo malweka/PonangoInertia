@@ -2,87 +2,38 @@
 
 A .NET 8.0 server-side adapter for [Inertia.js](https://inertiajs.com/), enabling you to build modern single-page applications using classic server-side routing and controllers with client-side rendering frameworks like Vue, React, or Svelte.
 
+## Documentation
+
+- [Getting Started](./docs/getting-started.md)
+- [Advanced Topics](./docs/advanced-topics.md)
+- [Migration From v1](./docs/migration-from-v1.md)
+- [Changelog](./CHANGELOG.md)
+
 ## Installation
 
 ```bash
 dotnet add package Ponango.Inertia
 ```
 
-## Project Structure
-
-```
-src/Ponango.Inertia/
-├── InertiaResult.cs              # ActionResult handling Inertia responses
-├── InertiaController.cs          # Base controller with Inertia helper methods
-├── InertiaContext.cs             # Scoped service for request context and shared data
-├── InertiaExtensions.cs          # Extension methods for InertiaContext
-├── InertiaRequestHeaders.cs      # Request header model
-├── InertiaRedirectResult.cs      # Redirect handling (303 for POST/PUT/PATCH/DELETE)
-├── LazyProp.cs                   # Lazy-evaluated props for partial reloads
-├── PageModel.cs                  # Inertia page object model
-├── HtmlHelperExtensions.cs       # Razor view helpers
-├── ServiceCollectionExtensions.cs # DI registration
-└── IAssetVersionProvider.cs      # Asset versioning interface
-```
-
-## Setup
-
-### 1. Register Services
+## Quick Start
 
 ```csharp
 // Program.cs
-builder.Services.AddInertia();
+builder.Services.AddControllersWithViews();
 
-// Register your asset version provider
-builder.Services.AddSingleton<IAssetVersionProvider, MyAssetVersionProvider>();
-```
-
-### 2. Implement Asset Version Provider
-
-```csharp
-public class MyAssetVersionProvider : IAssetVersionProvider
+builder.Services.AddInertia(options =>
 {
-    public string GetAssetVersion()
-    {
-        // Return a version string that changes when your assets change
-        // This triggers full page reloads when assets are updated
-        return "1.0.0"; // Or use a hash of your manifest file
-    }
-}
+    options.RootView = "Inertia";
+});
+
+builder.Services.AddSingleton<IAssetVersionProvider, AssetVersionProvider>();
+
+app.UseRouting();
+app.UseInertia();
+app.MapDefaultControllerRoute();
 ```
 
-### 3. Create a Razor Layout
-
-```html
-<!-- Views/Shared/_Layout.cshtml -->
-@inject IJsonSerializerOptionBuilder Serializer
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My App</title>
-    @* Include your frontend assets (Vite, Webpack, etc.) *@
-</head>
-<body>
-    @Html.InertiaRender(Serializer)
-    <script src="/js/app.js"></script>
-</body>
-</html>
-```
-
-### 4. Create a Shared Inertia View
-
-```html
-<!-- Views/Shared/Inertia.cshtml -->
-@{
-    Layout = "_Layout";
-}
-```
-
-## Usage
-
-### Option 1: Using InertiaContext (Recommended)
+Preferred controller API:
 
 ```csharp
 public class HomeController : Controller
@@ -96,135 +47,94 @@ public class HomeController : Controller
 
     public IActionResult Index()
     {
-        var data = new { Name = "John", Email = "john@example.com" };
-        return _inertia.Inertia("Inertia", data, "Home/Index");
+        return _inertia.Render("Home/Index", new
+        {
+            name = "John",
+            email = "john@example.com"
+        });
     }
 }
 ```
 
-### Option 2: Using InertiaController Base Class
+See [docs/getting-started.md](./docs/getting-started.md) for the full setup: package install, asset versioning, Razor layout, shared Inertia view, and a working endpoint.
+
+## Features
+
+- `Render(...)` as the primary rendering API
+- `OptionalProp`, `AlwaysProp`, `DeferredProp`, `MergeProp`, and `OnceProp`
+- partial reload support with `X-Inertia-Partial-Data`, `X-Inertia-Partial-Except`, and `X-Inertia-Reset`
+- shared data and flash messages
+- error bags and precognition
+- history flags: `encryptHistory`, `clearHistory`, `preserveFragment`
+- prefetch detection
+- infinite scroll metadata via `scrollProps`
+- external location responses via `Location(...)`
+
+## Example APIs
 
 ```csharp
 public class UsersController : InertiaController
 {
     public IActionResult Index()
     {
-        var users = _userService.GetAll();
-        return Inertia("Inertia", new { Users = users });
-        // Component name defaults to "Users" (from controller name)
-    }
-
-    public IActionResult Show(int id)
-    {
-        var user = _userService.Get(id);
-        return Inertia("Inertia", new { User = user }, component: "Users/Show");
-    }
-}
-```
-
-## Features
-
-### Shared Data
-
-Share data across all Inertia responses:
-
-```csharp
-public class BaseController : Controller
-{
-    private readonly InertiaContext _inertia;
-
-    public BaseController(InertiaContext inertia)
-    {
-        _inertia = inertia;
-    }
-
-    protected void ShareAuthData()
-    {
-        _inertia.Share("auth", new {
-            User = GetCurrentUser(),
-            Permissions = GetPermissions()
+        return Render("Users/Index", new
+        {
+            users = _userService.GetAll()
         });
     }
-}
-```
 
-Or use middleware:
-
-```csharp
-app.Use(async (context, next) =>
-{
-    var inertia = context.RequestServices.GetRequiredService<InertiaContext>();
-    inertia.Share("appName", "My Application");
-    await next();
-});
-```
-
-### Validation Errors
-
-Return validation errors following Inertia conventions:
-
-```csharp
-[HttpPost]
-public IActionResult Store(CreateUserRequest request)
-{
-    if (!ModelState.IsValid)
+    [Precognitive]
+    public IActionResult Store(CreateUserRequest request)
     {
-        return _inertia.Inertia("Inertia", request, "Users/Create")
-            .WithErrors(ModelState);
-    }
+        if (!ModelState.IsValid)
+        {
+            return Render("Users/Create", new { form = request })
+                .WithErrors(ModelState)
+                .WithFlash("error", "Validation failed");
+        }
 
-    // Process valid request...
-    return RedirectToAction("Index");
+        return RedirectToAction(nameof(Index));
+    }
 }
 ```
 
-### Lazy Props
-
-Defer expensive data loading until explicitly requested via partial reloads:
+Advanced prop wrappers:
 
 ```csharp
-public IActionResult Dashboard()
-{
-    var result = _inertia.Inertia("Inertia", new { }, "Dashboard");
-
-    // Only loaded when explicitly requested in a partial reload
-    result.Props["analytics"] = new LazyProp(() => _analyticsService.GetExpensiveReport());
-    result.Props["notifications"] = new LazyProp(() => _notificationService.GetAll());
-
-    return result;
-}
+var result = _inertia.Render("Dashboard/Index", new { user });
+result.With("permissions", Inertia.Always(() => GetPermissions()));
+result.With("analytics", Inertia.Optional(() => GetAnalytics()));
+result.With("report", Inertia.Defer(() => BuildReport(), group: "dashboard"));
+result.With("plans", Inertia.Once(() => GetPlans()));
+result.With("posts", Inertia.Merge(() => page.Items, MergeMode.Append)
+    .WithScroll(page.CurrentPage, page.PreviousPage, page.NextPage));
 ```
 
-### Partial Reloads
-
-The adapter automatically handles partial reload requests via:
-- `X-Inertia-Partial-Data`: Include only specified props
-- `X-Inertia-Partial-Except`: Exclude specified props
-
-The `errors` prop is always preserved in partial reloads per the Inertia protocol.
-
-### Custom JSON Serialization
-
-Configure JSON serialization options:
+## Configuration
 
 ```csharp
 builder.Services.AddInertia(options =>
 {
-    options.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-    options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-    options.Converters.Add(new JsonStringEnumConverter());
+    options.RootView = "Inertia";
+    options.EncryptHistory = true;
+    options.SharedData = ctx => new Dictionary<string, object>
+    {
+        ["appName"] = "My Application"
+    };
+    options.JsonSerializerOptions = json =>
+    {
+        json.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    };
 });
 ```
 
 ## How It Works
 
-1. **Initial Page Load**: Returns a full HTML page with the Inertia page object embedded in a `data-page` attribute on the root element.
-
-2. **Subsequent Requests**: When the `X-Inertia` header is present, returns only JSON containing the component name, props, URL, and version.
-
-3. **Asset Versioning**: Compares `X-Inertia-Version` header with current version. On mismatch, returns `409 Conflict` with `X-Inertia-Location` header to trigger a full page reload.
-
-4. **Redirects**: POST/PUT/PATCH/DELETE requests that redirect use `303 See Other` status to ensure the browser follows with a GET request.
+1. Initial page loads render a Razor view whose payload is emitted as a JSON script tag.
+2. Inertia requests return JSON page objects.
+3. Asset version mismatches return `409` with `X-Inertia-Location`.
+4. External redirects return `409` with `X-Inertia-Location` or `X-Inertia-Redirect`.
+5. Partial reload headers drive prop filtering and wrapper resolution.
 
 ## Frontend Setup
 
@@ -235,6 +145,13 @@ Pair this server-side adapter with the official Inertia.js client adapter for yo
 - **Svelte**: `@inertiajs/svelte`
 
 See the [Inertia.js documentation](https://inertiajs.com/) for client-side setup instructions.
+
+## Upgrade Notes
+
+- Add `app.UseInertia()` to the middleware pipeline.
+- Prefer `Render(...)` over the older `Inertia(...)` helpers.
+- Prefer `OptionalProp` over `LazyProp`.
+- Read [docs/migration-from-v1.md](./docs/migration-from-v1.md) if you are upgrading an older integration.
 
 ## License
 

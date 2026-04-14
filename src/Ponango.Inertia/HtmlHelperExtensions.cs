@@ -22,7 +22,7 @@ namespace Ponango.Inertia
 
             return new HtmlString(
                 $"<div id=\"{appId}\"></div>\n" +
-                $"<script type=\"application/json\" data-page data-inertia>\n{safeJson}\n</script>");
+                $"<script type=\"application/json\" data-page=\"{appId}\" data-inertia>\n{safeJson}\n</script>");
         }
     }
 }

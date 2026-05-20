@@ -110,6 +110,9 @@ public class InertiaMiddleware
         if (!Uri.TryCreate(location, UriKind.Absolute, out var uri))
             return false; // relative URL — internal
 
+        if (string.IsNullOrEmpty(uri.Host))
+            return false;
+
         return !string.Equals(uri.Host, request.Host.Host, StringComparison.OrdinalIgnoreCase)
             || uri.Port != (request.Host.Port ?? (request.IsHttps ? 443 : 80));
     }

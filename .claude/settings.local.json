@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:inertiajs.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:inertia-rails.dev)",
+      "Bash(dotnet build:*)"
+    ]
+  }
+}

@@ -52,14 +52,16 @@ Shared keys are tracked in the page object’s `sharedProps` field.
 
 ## Flash messages
 
-`WithFlash(...)` stores one-time data for the next response:
+`WithFlash(...)` stores one-time data and merges it into the response being
+built:
 
 ```csharp
 return _inertia.Render("Users/Index", new { users })
     .WithFlash("success", "User created");
 ```
 
-Flash values are exposed under the `flash` prop and are backed by ASP.NET Core TempData.
+Flash values are exposed under the `flash` prop, backed by ASP.NET Core
+TempData, and cleared after they are read.
 
 ## Validation errors and error bags
 
@@ -175,6 +177,8 @@ Behavior:
 
 - Valid precognition request: `204` with `Precognition-Success: true`
 - Invalid precognition request: `422` with JSON errors
+- `Precognition-Validate-Only` limits validation errors to the named fields
+  and nested/prefixed keys such as `user.name`
 - The action is short-circuited before normal action logic runs
 
 ## Prefetch
@@ -222,4 +226,5 @@ return _inertia.Location("https://external-site.com/callback");
 
 The response returns `409` with `X-Inertia-Location`.
 
-For external redirects containing a fragment, middleware emits `X-Inertia-Redirect`.
+For external redirects intercepted by middleware, URLs containing a fragment emit
+`X-Inertia-Redirect` instead.

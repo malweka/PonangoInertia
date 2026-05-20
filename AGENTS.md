@@ -1,10 +1,10 @@
-# CLAUDE.md
+# AGENTS.md
 
 This file provides guidance to coding agents working in this repository.
 
 ## Read First
 
-Before making changes, read `README.md`.
+All agents must read `README.md` before making changes.
 
 It is the current public-facing source of truth for:
 - package setup

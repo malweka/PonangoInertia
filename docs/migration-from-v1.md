@@ -50,7 +50,7 @@ Current format:
 
 ```html
 <div id="app"></div>
-<script type="application/json" data-page data-inertia>{...}</script>
+<script type="application/json" data-page="app" data-inertia>{...}</script>
 ```
 
 If your frontend bootstrap assumes the old attribute format, update it.
@@ -104,6 +104,9 @@ return _inertia.Render("Users/Index", new { users })
     .WithFlash("success", "User created");
 ```
 
+Flash values are merged into the response's `flash` prop and cleared after
+they are read.
+
 ## Error bags and precognition
 
 Validation handling now supports:
@@ -111,6 +114,7 @@ Validation handling now supports:
 - error bags via `WithErrors(..., "bagName")`
 - `X-Inertia-Error-Bag`
 - precognition via `[Precognitive]`
+- `Precognition-Validate-Only`, including nested keys such as `user.name`
 
 If you previously used only flat `errors`, those flows still work.
 

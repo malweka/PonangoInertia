@@ -84,7 +84,7 @@ Update `Views/Shared/_Layout.cshtml`:
 
 ```html
 <div id="app"></div>
-<script type="application/json" data-page data-inertia>{...}</script>
+<script type="application/json" data-page="app" data-inertia>{...}</script>
 ```
 
 ## 6. Add a controller endpoint

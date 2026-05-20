@@ -63,7 +63,7 @@ See [docs/getting-started.md](./docs/getting-started.md) for the full setup: pac
 - `Render(...)` as the primary rendering API
 - `OptionalProp`, `AlwaysProp`, `DeferredProp`, `MergeProp`, and `OnceProp`
 - partial reload support with `X-Inertia-Partial-Data`, `X-Inertia-Partial-Except`, and `X-Inertia-Reset`
-- shared data and flash messages
+- shared data and one-time flash messages backed by TempData
 - error bags and precognition
 - history flags: `encryptHistory`, `clearHistory`, `preserveFragment`
 - prefetch detection
@@ -135,6 +135,7 @@ builder.Services.AddInertia(options =>
 3. Asset version mismatches return `409` with `X-Inertia-Location`.
 4. External redirects return `409` with `X-Inertia-Location` or `X-Inertia-Redirect`.
 5. Partial reload headers drive prop filtering and wrapper resolution.
+6. Flash values are merged into the emitted `flash` prop and cleared after they are read.
 
 ## Frontend Setup
 

@@ -11,7 +11,9 @@ namespace Ponango.Inertia.Tests;
 
 internal static class TestInfrastructure
 {
-    public static TestContext CreateContext(Action<InertiaOptions>? configure = null)
+    public static TestContext CreateContext(
+        Action<InertiaOptions>? configure = null,
+        Action<IServiceCollection>? configureServices = null)
     {
         var services = new ServiceCollection();
         var accessor = new HttpContextAccessor();
@@ -24,6 +26,7 @@ internal static class TestInfrastructure
         services.AddLogging();
         services.AddMvcCore();
         services.AddInertia(configure ?? (_ => { }));
+        configureServices?.Invoke(services);
 
         var root = services.BuildServiceProvider();
         var scope = root.CreateScope();

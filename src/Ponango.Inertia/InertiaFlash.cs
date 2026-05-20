@@ -51,8 +51,11 @@ public class InertiaFlash
             result[flashKey] = raw != null
                 ? JsonSerializer.Deserialize<object>(raw)
                 : null;
+
+            tempData.Remove(key);
         }
 
+        tempData.Save();
         return result;
     }
 

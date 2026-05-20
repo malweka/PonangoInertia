@@ -34,7 +34,7 @@ public class PrecognitiveAttribute : ActionFilterAttribute
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var key in context.ModelState.Keys.Where(k => !fields.Contains(k)).ToList())
+            foreach (var key in context.ModelState.Keys.Where(k => !ShouldValidateKey(k, fields)).ToList())
                 context.ModelState.Remove(key);
         }
 
@@ -75,5 +75,20 @@ public class PrecognitiveAttribute : ActionFilterAttribute
                 errors[key] = entry.Errors[0].ErrorMessage;
         }
         return errors;
+    }
+
+    static bool ShouldValidateKey(string key, HashSet<string> fields)
+    {
+        foreach (var field in fields)
+        {
+            if (string.Equals(key, field, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (key.StartsWith($"{field}.", StringComparison.OrdinalIgnoreCase) ||
+                key.StartsWith($"{field}[", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 }

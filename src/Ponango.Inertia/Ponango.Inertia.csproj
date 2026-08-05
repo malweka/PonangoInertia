@@ -40,6 +40,7 @@
 		<RepositoryUrl>https://github.com/malweka/PonangoInertia.git</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageIcon>icon.png</PackageIcon>
 		<PackageReleaseNotes>See CHANGELOG.md at the project URL.</PackageReleaseNotes>
 
 		<!-- Off deliberately: the release workflow runs an explicit `dotnet pack`. Leaving this on makes
@@ -57,8 +58,11 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- Packed so nuget.org renders the README on the package page. -->
+		<!-- Packed so nuget.org renders the README and the icon on the package page.
+		     icon.svg is the source of truth for the mark; icon.png is rendered from it at
+		     128x128 and is the file NuGet actually consumes (it accepts PNG/JPEG only). -->
 		<None Include="../../README.md" Pack="true" PackagePath="\" />
+		<None Include="../../icon.png" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
 	<ItemGroup>

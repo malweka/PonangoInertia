@@ -19,7 +19,7 @@
 
 	     Tracking the full version in AssemblyVersion is safe HERE because this assembly is not
 	     strong-named and .NET (Core) does not enforce AssemblyVersion when binding. It would matter on
-	     .NET Framework, or for an assembly loaded dynamically through an AssemblyLoadContext -- neither
+	     .NET Framework, or for an assembly loaded dynamically through an AssemblyLoadContext; neither
 	     applies to a plain NuGet library reference. Each published NuGet version is immutable, so the
 	     build number never varies for a given released version. -->
 	<PropertyGroup>

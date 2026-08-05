@@ -1,0 +1,171 @@
+name: release
+
+# Two triggers, two very different outcomes:
+#
+#   push to release/**  -> build, test, pack a RELEASE CANDIDATE. Uploads the .nupkg as a workflow
+#                          artifact and publishes NOTHING. This is the gate: a red candidate can
+#                          never become a release.
+#   push tag v*.*.*     -> build, test, pack, PUSH TO NUGET.ORG and create the GitHub Release.
+#
+# Single-package repo, so both live in one workflow rather than the three PonaCms uses.
+on:
+  push:
+    branches: ['release/**']
+    tags: ['v*.*.*']
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # required by `gh release create`
+  id-token: write        # required by Trusted Publishing -- lets the job mint a GitHub OIDC token
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # SourceLink and --generate-notes both want full history
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # ===================================================================================
+      # The version comes from the git ref and nowhere else. Nothing is hand-edited, so there
+      # is no "forgot to bump" failure mode and no version-bump commit to merge back.
+      # ===================================================================================
+      - name: Derive version
+        id: v
+        run: |
+          set -euo pipefail
+
+          case "$GITHUB_REF" in
+            refs/tags/v*)
+              VERSION="${GITHUB_REF#refs/tags/v}"
+              PUBLISH=true
+              ;;
+            refs/heads/release/*)
+              LINE="${GITHUB_REF#refs/heads/release/}"
+              # Convention is the exact version: release/2.1.0. release/2.1 is still accepted and
+              # normalized to 2.1.0, so an abbreviated branch name is not a hard failure.
+              case "$LINE" in
+                *.*.*) BASE="$LINE" ;;
+                *.*)   BASE="$LINE.0" ;;
+                *)     echo "::error::release branch must be release/MAJOR.MINOR.PATCH (got '$LINE')"; exit 1 ;;
+              esac
+              VERSION="${BASE}-rc.${GITHUB_RUN_NUMBER}"
+              PUBLISH=false
+              ;;
+            *)
+              echo "::error::unexpected ref $GITHUB_REF"; exit 1 ;;
+          esac
+
+          # Reject anything that is not SemVer before it reaches nuget.org, where a bad version
+          # is permanent -- nuget.org does not allow re-uploading a version, even a deleted one.
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$VERSION' is not valid SemVer"; exit 1
+          fi
+
+          BASE="${VERSION%%-*}"                    # strip any -rc.N  ->  2.1.0
+
+          # AssemblyVersion and FileVersion are both {semver}.{build}, e.g. 2.1.0.42.
+          # GITHUB_RUN_NUMBER is the build number: it increments per workflow and never resets.
+          # Neither may carry a prerelease suffix -- both must be four numeric parts.
+          {
+            echo "version=$VERSION"                             # 2.1.0        or 2.1.0-rc.42
+            echo "file_version=${BASE}.${GITHUB_RUN_NUMBER}"     # 2.1.0.42
+            echo "assembly_version=${BASE}.${GITHUB_RUN_NUMBER}" # 2.1.0.42
+            echo "publish=$PUBLISH"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Building $VERSION (publish=$PUBLISH)"
+
+      # A tag must sit on the release branch it was cut from. Catches tagging main by accident.
+      - name: Verify tag is on a release branch
+        if: steps.v.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          if ! git branch -r --contains "$GITHUB_SHA" | grep -qE 'origin/release/'; then
+            echo "::error::tag $GITHUB_REF_NAME is not on any origin/release/* branch"
+            exit 1
+          fi
+
+      # Fail before building rather than after, so a missing secret is not discovered at the push step.
+      # This is the nuget.org PROFILE NAME (not an email, not an API key) -- Trusted Publishing needs it
+      # to select which account's policy to match the OIDC token against.
+      - name: Verify NUGET_USER is configured
+        if: steps.v.outputs.publish == 'true'
+        run: |
+          if [ -z "${{ secrets.NUGET_USER }}" ]; then
+            echo "::error::NUGET_USER secret is not set -- add your nuget.org username at Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+
+      # The version has to reach the COMPILER, not just `pack` -- it is baked into assembly
+      # attributes. So the same -p: values go to build and pack, and pack runs --no-build.
+      - name: Build
+        run: |
+          dotnet build src/Ponango.Inertia/Ponango.Inertia.sln -c Release --nologo \
+            -p:Version=${{ steps.v.outputs.version }} \
+            -p:FileVersion=${{ steps.v.outputs.file_version }} \
+            -p:AssemblyVersion=${{ steps.v.outputs.assembly_version }}
+
+      - name: Test
+        run: dotnet test src/Ponango.Inertia/Ponango.Inertia.sln -c Release --no-build --nologo
+
+      - name: Pack
+        run: |
+          dotnet pack src/Ponango.Inertia/Ponango.Inertia.csproj -c Release --no-build --nologo -o artifacts \
+            -p:Version=${{ steps.v.outputs.version }} \
+            -p:FileVersion=${{ steps.v.outputs.file_version }} \
+            -p:AssemblyVersion=${{ steps.v.outputs.assembly_version }}
+          ls -l artifacts
+
+      # ---- Candidate: keep the package, publish nothing ----
+      - name: Upload release candidate
+        if: steps.v.outputs.publish == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ponango.Inertia-${{ steps.v.outputs.version }}
+          path: artifacts/*
+          retention-days: 30
+
+      # ---- Release: publish ----
+      # Trusted Publishing: exchange a GitHub OIDC token for a short-lived nuget.org API key. No
+      # long-lived key is stored anywhere.
+      #
+      # ⚠️ This step must sit IMMEDIATELY before the push. The minted key is valid for 1 hour and each
+      # OIDC token is single-use (one token -> one key), so requesting it earlier -- e.g. up beside the
+      # other checks -- risks it expiring before the push and cannot simply be retried in place.
+      #
+      # The policy registered on nuget.org must name THIS file (`release.yml`) as its Workflow File.
+      - name: NuGet login (OIDC -> short-lived API key)
+        if: steps.v.outputs.publish == 'true'
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      # nuget.org pushes the adjacent .snupkg automatically alongside the .nupkg.
+      # --skip-duplicate makes a re-run of the same tag idempotent instead of a hard failure.
+      - name: Push to nuget.org
+        if: steps.v.outputs.publish == 'true'
+        run: |
+          dotnet nuget push "artifacts/*.nupkg" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Create GitHub Release
+        if: steps.v.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" artifacts/*.nupkg \
+            --title "${{ github.ref_name }}" \
+            --generate-notes

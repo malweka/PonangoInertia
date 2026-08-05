@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.1.0
+
+First release published to nuget.org.
+
+### Added
+
+- Published to nuget.org as `Ponango.Inertia`. Earlier versions were distributed as a binary only.
+- Symbol package (`.snupkg`) with SourceLink, so consumers can step into library sources while debugging.
+- MIT license.
+
+### Changed
+
+- The initial-payload `<script>` tag now carries `data-page="{appId}"` instead of a valueless `data-page`
+  attribute, so several Inertia apps on one page can each be matched to their own payload. Selectors of the
+  form `[data-page]` are unaffected.
+
 ## 2.0.0
 
 ### Added

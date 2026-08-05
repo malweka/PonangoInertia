@@ -1,0 +1,48 @@
+name: build
+
+# PR/main gate. Mirrors PonaCms's build.yml so the two repos behave the same way.
+# The job id is `build`, which is the check name a branch-protection ruleset requires.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    # release/** is here for a load-bearing reason: the branch ruleset requires the `build` check on
+    # release branches too. If this workflow did not run for PRs targeting them, that required check
+    # would never report and a hotfix PR into release/2.1.0 could never merge -- it would sit
+    # "Expected" forever with no way to resolve it short of an admin bypass.
+    branches: [main, 'release/**']
+
+# On a PR, cancel an in-progress run when new commits are pushed. Never cancel main builds.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The library targets net8.0. Bump this if it ever multi-targets a newer TFM.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # NOTE: the solution lives inside the project folder (src/Ponango.Inertia/Ponango.Inertia.sln)
+      # and reaches the test project via a relative path. That is unusual but works; every command
+      # below points at it rather than at a repo-root solution.
+      - name: Restore
+        run: dotnet restore src/Ponango.Inertia/Ponango.Inertia.sln
+
+      - name: Build
+        run: dotnet build src/Ponango.Inertia/Ponango.Inertia.sln -c Release --no-restore --nologo
+
+      - name: Test
+        run: dotnet test src/Ponango.Inertia/Ponango.Inertia.sln -c Release --no-build --nologo
+
+      # Proves the package is producible on every PR, so a packaging break is caught here rather than
+      # at release time. The artifact is discarded; only the release workflow publishes.
+      - name: Pack (verification only)
+        run: dotnet pack src/Ponango.Inertia/Ponango.Inertia.csproj -c Release --no-build --nologo -o /tmp/pack-check

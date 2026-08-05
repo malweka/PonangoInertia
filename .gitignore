@@ -355,3 +355,23 @@ rabbitmq-data/
 redis-data/
 smtp4dev-data/
 src/.idea
+# ---------------------------------------------------------------------------
+# Secrets — added before making this repository public.
+# Nothing sensitive has ever been committed here (history was scanned), but a
+# public repo turns an accidental `git add .` into an instant, permanent leak.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.env
+secrets.json
+appsettings.Development.json
+appsettings.*.Local.json
+*.key
+*.pem
+*.p12
+*.keystore
+*.publishsettings
+nuget.config
+NuGet.Config
+.claude/settings.local.json

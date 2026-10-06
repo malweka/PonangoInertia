@@ -18,6 +18,7 @@ For implementation work, also consult:
 - `docs/advanced-topics.md`
 - `docs/migration-from-v1.md`
 - `docs/upgrading-to-3.0.md`
+- `docs/compatibility.md` (keep it current when adding or changing features)
 - `requirements/protocol-requirements.md`
 - `requirements/public-api-requirements.md`
 - `requirements/testing-and-docs-requirements.md`

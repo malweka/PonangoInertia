@@ -6,6 +6,7 @@ A .NET 8.0 server-side adapter for [Inertia.js](https://inertiajs.com/), enablin
 
 - [Getting Started](./docs/getting-started.md)
 - [Advanced Topics](./docs/advanced-topics.md)
+- [Compatibility with Inertia.js](./docs/compatibility.md)
 - [Upgrading to 3.0](./docs/upgrading-to-3.0.md)
 - [Migration From v1](./docs/migration-from-v1.md)
 - [Changelog](./CHANGELOG.md)
@@ -59,19 +60,52 @@ public class HomeController : Controller
 
 See [docs/getting-started.md](./docs/getting-started.md) for the full setup: package install, asset versioning, Razor layout, shared Inertia view, and a working endpoint.
 
-## Features
+## What Is Inertia.js?
 
-- `Render(...)` as the primary rendering API
-- `OptionalProp`, `AlwaysProp`, `DeferredProp`, `MergeProp`, and `OnceProp`
-- partial reload support with `X-Inertia-Partial-Data`, `X-Inertia-Partial-Except`, and `X-Inertia-Reset`
-- shared data, and one-time flash data emitted as the page-level `flash` field (backed by TempData)
-- error bags and precognition
-- history flags: `encryptHistory`, `clearHistory`, `preserveFragment`
-- prefetch detection
-- infinite scroll via `Inertia.Scroll(...)` (page numbers or cursors, `scrollProps`)
-- composable prop modifiers: deferred + merge, once on deferred/merge/optional props, rescued deferred props
-- big integers beyond JavaScript's safe range delivered as `BigInt` (`PreserveBigIntegers`)
-- external location responses via `Location(...)`
+Inertia lets you build a single-page app without building an API. Your ASP.NET Core controllers keep doing the
+routing, authorization, validation and data loading. Instead of returning Razor HTML, an action returns the name
+of a client-side page component and its props. Inertia renders that component with Vue, React or Svelte, and
+later navigations swap pages through small JSON requests instead of full page loads.
+
+The main Inertia features:
+
+- **Server-driven routing.** Links and forms trigger visits that call your controllers. No client router or REST
+  layer to maintain.
+- **Pages and layouts.** Each response names a page component; persistent layouts survive navigation.
+- **Forms and validation.** `useForm` and `<Form>` submit to your actions, and validation errors come back as
+  props.
+- **Partial reloads.** Ask the server for only some props (`router.reload({ only: ['users'] })`).
+- **Deferred, lazy, merged and once props.** Load slow data after the first render, append pages of results,
+  and cache rarely changing data on the client.
+- **Infinite scroll, polling, prefetching, load-when-visible** and instant visits.
+- **Shared data and flash messages** available on every page.
+- **History management.** Back/forward restores state; history entries can be encrypted.
+- **Asset versioning.** Clients reload automatically after a deployment.
+- **Precognition.** Validate a form live without running the action.
+
+## What This Adapter Gives You
+
+Ponango.Inertia implements the server side of the Inertia v3 protocol for ASP.NET Core:
+
+- **Rendering:** `Render("Users/Index", props)` from any controller, `InertiaController` helpers, and a Razor
+  helper that writes the initial page payload.
+- **Middleware (`UseInertia()`):** asset version checks, `Vary` headers, `303` redirects after form posts,
+  external and `#fragment` redirects, and shared data.
+- **Every v3 prop type, combinable:** `Optional`, `Always`, `Defer` (grouped, rescuable), `Merge` / `DeepMerge`
+  (root or nested paths, match fields), `Once` (expiry, custom keys, forced refresh), `Scroll` (page numbers or
+  cursors), plus lazy `Func<object>` props. For example `Inertia.Defer(...).Once()` or
+  `Inertia.Defer(...).DeepMerge()`.
+- **Nested props and dot notation:** wrappers inside nested objects, reloadable with
+  `only: ['auth.notifications']`.
+- **Shared data and flash:** app-wide props through options or per request, `ShareOnce`, and flash data in
+  `page.flash` that survives redirects.
+- **Validation:** `WithErrors(ModelState)`, error bags, optional all-messages-per-field, and `[Precognitive]`
+  actions.
+- **History and navigation:** encrypt or clear history, preserve URL fragments, detect prefetch requests.
+- **Big integers:** 64-bit IDs delivered to the browser as exact `BigInt` values.
+
+See [docs/compatibility.md](./docs/compatibility.md) for a feature-by-feature table against the current Inertia
+release, including what isn't supported yet.
 
 ## Example APIs
 
@@ -177,6 +211,11 @@ These Inertia v3 server features are not implemented:
 - the DevTools server protocol
 - an Inertia-aware exception/error-page helper
 - `ProvidesInertiaProperty` / `ProvidesInertiaProperties`-style prop provider interfaces
+- testing helpers like Laravel's `assertInertia`
+
+Validation errors are returned by re-rendering the page with `WithErrors(...)`; they are not carried across a
+redirect. CSRF protection uses ASP.NET Core antiforgery, which you configure yourself. See
+[docs/compatibility.md](./docs/compatibility.md) for details.
 
 ## License
 

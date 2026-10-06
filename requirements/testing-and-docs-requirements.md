@@ -31,6 +31,7 @@ The repository should keep:
 - `README.md` as the entry point
 - `docs/getting-started.md` for new users
 - `docs/advanced-topics.md` for data and protocol behavior
+- `docs/compatibility.md` for feature-by-feature compatibility with the current Inertia.js release
 - `docs/migration-from-v1.md` and `docs/upgrading-to-3.0.md` for upgrade guidance
 - `CHANGELOG.md` for released changes
 

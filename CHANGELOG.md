@@ -6,6 +6,8 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 
 ### Added
 
+- `docs/compatibility.md`: feature-by-feature compatibility tables against Inertia.js 3.8.0, and a README
+  overview of Inertia and of what the adapter provides.
 - Version-mismatch `409` responses now echo the current asset version in `X-Inertia-Version`.
 - Precognitive actions add `Precognition` to the `Vary` header on every response.
 - `InertiaResult.WithFlash(IDictionary<string, object?>)` flashes several values at once.

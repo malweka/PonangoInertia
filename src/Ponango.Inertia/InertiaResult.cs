@@ -200,6 +200,10 @@ namespace Ponango.Inertia
                 }
             }
 
+            // The protocol requires an errors object on every page, even when there are no errors.
+            if (!props.ContainsKey("errors"))
+                props["errors"] = new Dictionary<string, object>();
+
             var deferredPropsMap = new Dictionary<string, List<string>>();
             var mergePropsKeys = new List<string>();
             var prependPropsKeys = new List<string>();
@@ -319,6 +323,7 @@ namespace Ponango.Inertia
 
             httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
             httpContext.Response.Headers["X-Inertia-Location"] = httpContext.Request.GetEncodedUrl();
+            httpContext.Response.Headers["X-Inertia-Version"] = AssetsVersion;
             return true;
         }
 
@@ -343,15 +348,13 @@ namespace Ponango.Inertia
                     return false;
                 }
 
-                return partialData.Contains(key);
+                return PassesPartialFilter(key, value, isPartialRequest, partialData, partialExcept);
             }
 
-            if (value is OptionalProp)
-                return isPartialRequest && partialData.Contains(key);
-
+            // Optional props are never resolved on a full visit; on a partial reload they follow the only/except filters.
 #pragma warning disable CS0618
-            if (value is LazyProp)
-                return isPartialRequest && partialData.Contains(key);
+            if (value is OptionalProp or LazyProp)
+                return isPartialRequest && PassesPartialFilter(key, value, isPartialRequest, partialData, partialExcept);
 #pragma warning restore CS0618
 
             if (value is OnceProp onceProp)
@@ -379,8 +382,9 @@ namespace Ponango.Inertia
             if (value is AlwaysProp || key == "errors")
                 return true;
 
-            if (partialData.Count > 0)
-                return partialData.Contains(key);
+            // The only-list narrows the response first, then the except-list is removed from it.
+            if (partialData.Count > 0 && !partialData.Contains(key))
+                return false;
 
             return !partialExcept.Contains(key);
         }
@@ -400,7 +404,7 @@ namespace Ponango.Inertia
         {
             var entry = new Dictionary<string, object?> { ["prop"] = key };
             if (onceProp.ExpiresAfter.HasValue)
-                entry["expiresAt"] = DateTimeOffset.UtcNow.Add(onceProp.ExpiresAfter.Value).ToUnixTimeSeconds();
+                entry["expiresAt"] = DateTimeOffset.UtcNow.Add(onceProp.ExpiresAfter.Value).ToUnixTimeMilliseconds();
             else
                 entry["expiresAt"] = null;
 

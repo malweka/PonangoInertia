@@ -1,5 +1,34 @@
 # Changelog
 
+## 3.0.0 (unreleased)
+
+Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-to-3.0.md](docs/upgrading-to-3.0.md).
+
+### Added
+
+- Version-mismatch `409` responses now echo the current asset version in `X-Inertia-Version`.
+- Precognitive actions add `Precognition` to the `Vary` header on every response.
+
+### Fixed
+
+- Once-prop `expiresAt` is now a Unix timestamp in milliseconds, as the client expects. It was emitted in
+  seconds, so every once prop with an expiry looked expired and was fetched again on every visit.
+- Partial reloads that send both `X-Inertia-Partial-Data` and `X-Inertia-Partial-Except` now remove the
+  excepted props. The except list used to be ignored whenever a data list was present.
+- The initial-page script payload escapes every `/` as `\/` and every `<` as `\u003c`, so prop data can't close
+  the script element early, whatever the configured JSON encoder or casing of `</script>`.
+
+### Breaking changes
+
+- `props.errors` is now always present, as `{}` when there are no errors.
+- Partial reloads that send only `X-Inertia-Partial-Except` now also resolve optional and deferred props that
+  are not excluded, matching the reference adapter. Full visits still never resolve them.
+- Redirects intercepted by the middleware during Inertia requests:
+  - an external redirect whose target contains a `#fragment` now returns `409` + `X-Inertia-Location` (it used
+    `X-Inertia-Redirect`, which made the client fetch another origin by XHR);
+  - an internal redirect whose target contains a `#fragment` now returns `409` + `X-Inertia-Redirect`, so the
+    client keeps the fragment (prefetch requests excepted).
+
 ## 2.1.0
 
 First release published to nuget.org.

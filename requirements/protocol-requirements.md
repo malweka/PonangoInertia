@@ -10,7 +10,7 @@ The adapter must emit an Inertia page object with:
 - `component`
 - `url`
 - `version`
-- `props`
+- `props` (always containing an `errors` object, `{}` when there are no errors)
 
 Optional page object fields must be emitted only when applicable:
 - `encryptHistory`
@@ -36,6 +36,9 @@ The initial non-Inertia response must render:
 
 The legacy `data-page` attribute format is not the target format.
 
+The JSON inside the script tag must escape every `/` as `\/` (and `<` as `\u003c`) so no sequence in prop
+data can close the script element early. HTML-entity encoding must not be used.
+
 ## Middleware behavior
 
 Middleware support is required via `app.UseInertia()`.
@@ -44,7 +47,8 @@ The middleware layer must:
 - append `X-Inertia` to `Vary`
 - enforce asset version mismatch handling
 - inject configured shared data
-- translate external redirects to `409`
+- translate external redirects to `409` + `X-Inertia-Location`
+- translate internal redirects whose target contains a `#fragment` (non-prefetch) to `409` + `X-Inertia-Redirect`
 - convert non-GET Inertia `302` redirects to `303`
 
 ## Asset version handling
@@ -53,6 +57,8 @@ For Inertia GET requests:
 - compare `X-Inertia-Version` to the current asset version
 - on mismatch, return `409`
 - include `X-Inertia-Location` with the current request URL
+- include `X-Inertia-Version` with the current asset version
+- leave pending flash data unread so it survives the follow-up request
 
 ## Shared props
 
@@ -74,7 +80,9 @@ Supported partial reload headers:
 Rules:
 - `errors` must always be preserved
 - `AlwaysProp` must always be preserved
-- `OptionalProp`, obsolete `LazyProp`, and `DeferredProp` must only resolve when explicitly requested
+- when both data and except lists are sent, the data list narrows first, then the except list is removed
+- `OptionalProp`, obsolete `LazyProp`, and `DeferredProp` must never resolve on a full visit; on a partial
+  reload they follow the same data/except filters as other props
 - reset keys suppress merge metadata for matching props
 
 ## Prop wrapper requirements
@@ -123,6 +131,7 @@ Precognition handling must:
 - return `204` with `Precognition-Success: true` when valid
 - return `422` with JSON errors when invalid
 - honor `Precognition-Validate-Only`
+- add `Precognition` to `Vary` on every response from a precognitive action
 
 ## History and navigation flags
 
@@ -136,8 +145,10 @@ Global history encryption defaults must be configurable through `InertiaOptions`
 ## External redirects
 
 External navigation must support:
-- `409` + `X-Inertia-Location`
-- `409` + `X-Inertia-Redirect` for external URLs containing fragments
+- `409` + `X-Inertia-Location` for `Location(...)` and for intercepted external redirects (with or without a
+  fragment)
+- `409` + `X-Inertia-Redirect` for intercepted internal redirects whose target contains a fragment, except on
+  prefetch requests
 
 ## Infinite scroll
 

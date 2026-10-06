@@ -132,8 +132,9 @@ builder.Services.AddInertia(options =>
 
 1. Initial page loads render a Razor view whose payload is emitted as a JSON script tag.
 2. Inertia requests return JSON page objects.
-3. Asset version mismatches return `409` with `X-Inertia-Location`.
-4. External redirects return `409` with `X-Inertia-Location` or `X-Inertia-Redirect`.
+3. Asset version mismatches return `409` with `X-Inertia-Location` and `X-Inertia-Version`.
+4. External redirects return `409` with `X-Inertia-Location`; internal redirects to a URL with a `#fragment`
+   return `409` with `X-Inertia-Redirect`.
 5. Partial reload headers drive prop filtering and wrapper resolution.
 6. Flash values are merged into the emitted `flash` prop and cleared after they are read.
 

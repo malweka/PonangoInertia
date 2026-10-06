@@ -135,9 +135,13 @@ The adapter supports:
 
 Rules:
 
-- `errors` is always preserved.
+- `errors` is always present (an empty object when there are no errors) and always preserved.
 - `AlwaysProp` is always preserved.
-- `OptionalProp`, `LazyProp`, and `DeferredProp` only resolve when explicitly requested.
+- When both `X-Inertia-Partial-Data` and `X-Inertia-Partial-Except` are sent, the data list narrows the
+  response first and the except list is then removed from it, so a prop named in both is excluded.
+- `OptionalProp`, `LazyProp`, and `DeferredProp` are never resolved on a full visit. On a partial reload they
+  follow the same `only`/`except` filters as any other prop, so `router.reload({ except: ['users'] })` also
+  resolves optional and deferred props that are not excluded.
 - Merge metadata is suppressed when the prop key is listed in `X-Inertia-Reset`.
 
 ## History and navigation flags
@@ -180,6 +184,7 @@ Behavior:
 - `Precognition-Validate-Only` limits validation errors to the named fields
   and nested/prefixed keys such as `user.name`
 - The action is short-circuited before normal action logic runs
+- Every response from a precognitive action carries `Vary: Precognition`
 
 ## Prefetch
 
@@ -226,5 +231,16 @@ return _inertia.Location("https://external-site.com/callback");
 
 The response returns `409` with `X-Inertia-Location`.
 
-For external redirects intercepted by middleware, URLs containing a fragment emit
-`X-Inertia-Redirect` instead.
+The middleware also rewrites redirects returned during Inertia requests:
+
+| Redirect target | Response |
+|---|---|
+| External URL (another host or port), with or without a fragment | `409` + `X-Inertia-Location` (the client does a full `window.location` visit) |
+| Internal URL containing a `#fragment` (not a prefetch) | `409` + `X-Inertia-Redirect` (the client makes a fresh Inertia visit and keeps the fragment) |
+| Any other `302` after a non-GET request | `303` |
+
+## Asset version mismatches
+
+When an Inertia GET request carries a stale `X-Inertia-Version`, the response is `409` with
+`X-Inertia-Location` (the current URL) and `X-Inertia-Version` (the current asset version). Pending flash
+data is not consumed by this response, so it is still delivered after the client reloads.

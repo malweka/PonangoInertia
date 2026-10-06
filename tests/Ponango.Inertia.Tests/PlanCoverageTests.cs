@@ -38,8 +38,16 @@ public class PlanCoverageTests
         Assert.Contains("<script type=\"application/json\"", html);
         Assert.Contains("data-page", html);
         Assert.Contains("data-inertia", html);
-        Assert.Contains("<\\/script>", html);
         Assert.DoesNotContain("</script><p>bad</p>", html);
+
+        // Every "/" is escaped as "\/" (and "<" as <), so nothing in the payload can close the tag.
+        var body = TestHelpers.ExtractScriptBody(html);
+        Assert.DoesNotContain("</", body);
+        Assert.Contains("\\/users", body);
+
+        using var page = JsonDocument.Parse(body);
+        Assert.Equal("/users", page.RootElement.GetProperty("url").GetString());
+        Assert.Equal("</script><p>bad</p>", page.RootElement.GetProperty("props").GetProperty("unsafeValue").GetString());
     }
 
     [Fact]
@@ -71,6 +79,7 @@ public class PlanCoverageTests
 
         Assert.Equal(StatusCodes.Status409Conflict, httpContext.Response.StatusCode);
         Assert.Equal("https://app.test/users", httpContext.Response.Headers["X-Inertia-Location"].ToString());
+        Assert.Equal("test-version", httpContext.Response.Headers["X-Inertia-Version"].ToString());
     }
 
     [Fact]

@@ -30,7 +30,7 @@ public class InertiaResultTests
     }
 
     [Fact]
-    public async Task Partial_except_does_not_resolve_optional_or_deferred_props()
+    public async Task Partial_except_only_resolves_optional_and_deferred_props_not_excluded()
     {
         using var test = TestInfrastructure.CreateContext();
         var httpContext = test.HttpContext;
@@ -62,11 +62,12 @@ public class InertiaResultTests
         using var document = await TestInfrastructure.ReadJsonAsync(httpContext.Response);
         var props = document.RootElement.GetProperty("props");
 
+        // On a partial reload the only gate is the only/except filter, as in the reference adapter.
         Assert.False(props.TryGetProperty("users", out _));
-        Assert.False(props.TryGetProperty("stats", out _));
-        Assert.False(props.TryGetProperty("analytics", out _));
-        Assert.Equal(0, optionalCalls);
-        Assert.Equal(0, deferredCalls);
+        Assert.True(props.TryGetProperty("stats", out _));
+        Assert.True(props.TryGetProperty("analytics", out _));
+        Assert.Equal(1, optionalCalls);
+        Assert.Equal(1, deferredCalls);
     }
 
     [Fact]

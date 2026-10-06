@@ -50,6 +50,8 @@ _inertia.Share("featureFlags", new
 
 Shared keys are tracked in the page object’s `sharedProps` field. The client uses that list to carry shared
 props over to the next page during [instant visits](https://inertiajs.com/docs/v3/the-basics/instant-visits).
+The list is sent on every response, including partial reloads that skip the shared values. A shared key that
+a page prop overrides is not listed.
 To omit it (values are still sent), set `options.ExposeSharedPropKeys = false`.
 
 ## Flash messages
@@ -251,16 +253,21 @@ Rules:
 
 ### Lazy evaluation
 
-A prop given as a `Func<object>` (or `Func<Task<T>>`, or any `Func<T>` returning a reference type) is evaluated
-only when the response includes it, so a partial reload that does not request it never runs the query:
+A prop given as a delegate that takes no arguments and returns a value (`Func<object>`, `Func<int>`,
+`Func<Task<T>>`, `Func<ValueTask<T>>`) is evaluated only when the response includes it, so a partial reload
+that does not request it never runs the query:
 
 ```csharp
 return _inertia.Render("Users/Index", new Dictionary<string, object>
 {
     ["users"] = (Func<object>)(() => _db.Users.ToList()),
     ["companies"] = (Func<Task<List<Company>>>)(() => _db.Companies.ToListAsync()),
+    ["userCount"] = () => _db.Users.Count(),
 });
 ```
+
+In a `Dictionary<string, object>` or `With(...)` a plain lambda works without a cast. An anonymous object needs
+the cast, because C# cannot assign a lambda to an anonymous type property.
 
 | Approach | Full visits | Partial reloads | Evaluated |
 |---|---|---|---|

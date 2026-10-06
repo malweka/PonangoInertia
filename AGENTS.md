@@ -41,7 +41,7 @@ Current capabilities include:
   - `MergeProp` (root or nested-path merging, once)
   - `OnceProp`
   - `ScrollProp` (infinite scroll)
-- lazy delegate props (`Func<object>`)
+- lazy delegate props (any delegate without parameters that returns a value)
 - nested prop types and dot-notation partial reloads
 - big integer markers (`preserveBigIntegers`)
 - prefetch detection
@@ -111,7 +111,7 @@ Inertia.Once(...)                            // .As() .Fresh() .Until()
 Inertia.Scroll(..., ScrollMetadata, wrapper) // .Defer() .MatchingOn()
 ```
 
-`InertiaContext.ShareOnce(...)` shares a once prop. A `Func<object>` prop value is evaluated lazily.
+`InertiaContext.ShareOnce(...)` shares a once prop. A delegate prop value without parameters (`Func<T>`, `Func<Task<T>>`) is evaluated lazily.
 
 ### Controller base class
 
@@ -159,6 +159,8 @@ Responsible for:
 
 Responsible for:
 - merging shared and page props (shared first, page props win), adding the default `errors` object
+- listing shared keys in `sharedProps` on every response, partial reloads included
+- the default `url`: path base, path and query string
 - running `PropsResolver` and copying its metadata onto the page object
 - HTML vs JSON response generation
 - history/navigation flags and the `preserveBigIntegers` flag
@@ -176,9 +178,12 @@ A port of the reference adapter's `PropsResolver` (inertia-laravel 3.x). Respons
 - collecting deferred, merge, match, scroll, and once metadata
 - walking anonymous objects and string-keyed dictionaries (`PropContainers`) for nested prop types
 
-Prop behavior is described by the public capability interfaces in `PropCapabilities.cs` (`IResolvableProp`,
-`IIgnoreFirstLoad`, `IDeferrableProp`, `IMergeableProp`, `IOnceableProp`, `IRescuableProp`). When adapting more
-reference-adapter behavior, read `src/PropsResolver.php` in inertia-laravel first and follow it.
+Prop behavior is described by the capability interfaces in `PropCapabilities.cs` (`IResolvableProp`,
+`IIgnoreFirstLoad`, `IDeferrableProp`, `IMergeableProp`, `IOnceableProp`, `IRescuableProp`). They are internal:
+custom prop types outside the library are not supported, so their shape can change freely. The fluent once and
+merge modifiers shared by `OptionalProp`, `DeferredProp` and `MergeProp` live in `PropModifiers.cs`
+(`OnceModifiers<TSelf>`, `MergeModifiers<TSelf>`); add a shared modifier there, not on one wrapper. When
+adapting more reference-adapter behavior, read `src/PropsResolver.php` in inertia-laravel first and follow it.
 
 ### InertiaContext
 
@@ -206,6 +211,8 @@ Includes:
 - scroll metadata
 - history/navigation flags
 - `flash` and `preserveBigIntegers`
+- the serializer options, built once per `IJsonSerializerOptionBuilder` and reused (`GetSerializerOptions`);
+  the returned instance is shared, so never modify it
 
 ## Prop Wrapper Semantics
 
@@ -266,6 +273,8 @@ Important behavior:
 - `X-Inertia-Reset` suppresses merge metadata for matching props and sets `scrollProps[*].reset`
 - `X-Inertia-Infinite-Scroll-Merge-Intent` only affects scroll props
 - precognitive actions add `Precognition` to `Vary`
+- `sharedProps` lists every shared key a page prop does not override, on partial reloads too
+- `url` is the path base, path and query string unless `InertiaResult.Url` is set
 - the initial-page script payload escapes `/` as `\/` and `<` as `\u003c`
 
 ## View Integration

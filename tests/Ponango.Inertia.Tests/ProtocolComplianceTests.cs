@@ -121,6 +121,38 @@ public class ProtocolComplianceTests
     }
 
     [Fact]
+    public async Task Page_url_includes_path_base_and_query_string()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        TestHelpers.AsInertia(test.HttpContext);
+        test.HttpContext.Request.PathBase = "/app";
+        test.HttpContext.Request.Path = "/users";
+        test.HttpContext.Request.QueryString = new QueryString("?page=2&search=bob");
+
+        using var document = await TestHelpers.ExecuteJsonAsync(
+            test,
+            test.GetRequiredService<InertiaContext>().Render("Users/Index", new { }));
+
+        Assert.Equal("/app/users?page=2&search=bob", document.RootElement.GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public async Task Page_url_can_still_be_set_explicitly()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        TestHelpers.AsInertia(test.HttpContext);
+        test.HttpContext.Request.Path = "/users";
+        test.HttpContext.Request.QueryString = new QueryString("?page=2");
+
+        var result = test.GetRequiredService<InertiaContext>().Render("Users/Index", new { });
+        result.Url = "/people";
+
+        using var document = await TestHelpers.ExecuteJsonAsync(test, result);
+
+        Assert.Equal("/people", document.RootElement.GetProperty("url").GetString());
+    }
+
+    [Fact]
     public async Task Internal_redirect_with_fragment_returns_409_with_redirect_header()
     {
         using var test = TestInfrastructure.CreateContext();

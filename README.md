@@ -93,7 +93,7 @@ Ponango.Inertia implements the server side of the Inertia v3 protocol for ASP.NE
   external and `#fragment` redirects, and shared data.
 - **Every v3 prop type, combinable:** `Optional`, `Always`, `Defer` (grouped, rescuable), `Merge` / `DeepMerge`
   (root or nested paths, match fields), `Once` (expiry, custom keys, forced refresh), `Scroll` (page numbers or
-  cursors), plus lazy `Func<object>` props. For example `Inertia.Defer(...).Once()` or
+  cursors), plus lazy delegate props. For example `Inertia.Defer(...).Once()` or
   `Inertia.Defer(...).DeepMerge()`.
 - **Nested props and dot notation:** wrappers inside nested objects, reloadable with
   `only: ['auth.notifications']`.

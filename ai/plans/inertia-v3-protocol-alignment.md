@@ -904,8 +904,12 @@ All eight phases were implemented as planned. Deviations and decisions made duri
 - **Merge intent on deferred scroll props:** the full-visit merge label of a deferred scroll prop follows the
   merge intent and targets the wrapper (`posts.data`). The reference skips intent configuration there and labels
   the root.
-- **Lazy delegates:** any `Func<T>` with a reference-type `T` is treated as lazy (covariance), and returned tasks
-  are awaited.
+- **Lazy delegates:** any delegate without parameters that returns a value is treated as lazy, and returned
+  tasks are awaited. (Initially only `Func<T>` with a reference-type `T`; widened after the PR review.)
+- **Capability interfaces are internal:** section 3.1 planned them as `public`. After the PR review they were
+  made internal for 3.0, because the resolver is their only consumer and custom prop types are not a supported
+  extension point. The shared fluent modifiers moved to `PropModifiers.cs` (`OnceModifiers<TSelf>`,
+  `MergeModifiers<TSelf>`).
 - **Phase 7 scope:** only anonymous objects and string-keyed `IDictionary` instances are walked; lists and POCOs
   are opaque. A container is rebuilt only when it holds prop types or a partial path targets inside it, and rebuilt
   anonymous objects apply the serializer's naming policy and null-skipping.

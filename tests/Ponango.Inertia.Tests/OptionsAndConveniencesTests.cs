@@ -84,6 +84,46 @@ public class OptionsAndConveniencesTests
         Assert.Equal("Alice", document.RootElement.GetProperty("props").GetProperty("auth").GetProperty("name").GetString());
     }
 
+    [Fact]
+    public async Task Shared_prop_keys_stay_listed_when_a_partial_reload_skips_their_values()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        TestHelpers.AsInertia(test.HttpContext, partialComponent: "Page", only: "stats");
+        var inertia = test.GetRequiredService<InertiaContext>();
+        inertia.Share("auth", new { name = "Alice" });
+
+        using var document = await TestHelpers.ExecuteJsonAsync(test, inertia.Render("Page", new { stats = Inertia.Defer(() => 5) }));
+
+        Assert.False(document.RootElement.GetProperty("props").TryGetProperty("auth", out _));
+        Assert.Equal(new[] { "auth" }, TestHelpers.Strings(document.RootElement.GetProperty("sharedProps")));
+    }
+
+    // ----- Serializer options -----
+
+    [Fact]
+    public void Serializer_options_are_built_once_per_builder()
+    {
+        var configured = 0;
+        var serializer = new TestHelpers.SerializerOptionsBuilder(_ => configured++);
+        PageModel Page(bool bigIntegers) => new()
+        {
+            Component = "Page",
+            Url = "/",
+            Version = "v",
+            Props = new { id = long.MaxValue },
+            PreserveBigIntegers = bigIntegers ? true : null
+        };
+
+        var plain = Page(bigIntegers: false).ToJson(serializer);
+        var marked = Page(bigIntegers: true).ToJson(serializer);
+        Page(bigIntegers: false).ToJson(serializer);
+        Page(bigIntegers: true).ToJson(serializer);
+
+        Assert.Equal(1, configured);
+        Assert.DoesNotContain("$bigint", plain);
+        Assert.Contains("$bigint", marked);
+    }
+
     // ----- Lazy delegate props -----
 
     [Fact]
@@ -139,6 +179,61 @@ public class OptionsAndConveniencesTests
         Assert.Equal(3, props.GetProperty("count").GetInt32());
         Assert.Equal("a", props.GetProperty("names")[0].GetString());
         Assert.Equal("covariant", props.GetProperty("typed").GetString());
+    }
+
+    [Fact]
+    public async Task Lazy_delegates_returning_value_types_are_evaluated()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        TestHelpers.AsInertia(test.HttpContext);
+
+        // A lambda returning an int is a Func<int>, which is not a Func<object>.
+        using var document = await TestHelpers.ExecuteJsonAsync(test, test.GetRequiredService<InertiaContext>()
+            .Render("Users/Index", new Dictionary<string, object>
+            {
+                ["count"] = () => 42,
+                ["asyncCount"] = () => Task.FromResult(7),
+                ["valueTaskCount"] = () => new ValueTask<int>(9)
+            })
+            .With("enabled", () => true));
+
+        var props = document.RootElement.GetProperty("props");
+        Assert.Equal(42, props.GetProperty("count").GetInt32());
+        Assert.Equal(7, props.GetProperty("asyncCount").GetInt32());
+        Assert.Equal(9, props.GetProperty("valueTaskCount").GetInt32());
+        Assert.True(props.GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Value_type_lazy_delegate_is_not_called_when_a_partial_reload_excludes_it()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        TestHelpers.AsInertia(test.HttpContext, partialComponent: "Users/Index", only: "users");
+        var calls = 0;
+
+        using var document = await TestHelpers.ExecuteJsonAsync(test, test.GetRequiredService<InertiaContext>()
+            .Render("Users/Index", new Dictionary<string, object>
+            {
+                ["users"] = new[] { "alice" },
+                ["count"] = () => ++calls
+            }));
+
+        Assert.Equal(0, calls);
+        Assert.False(document.RootElement.GetProperty("props").TryGetProperty("count", out _));
+    }
+
+    [Fact]
+    public async Task Lazy_delegate_exceptions_surface_unwrapped()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        TestHelpers.AsInertia(test.HttpContext);
+        Func<int> failing = () => throw new InvalidOperationException("boom");
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => TestHelpers.ExecuteJsonAsync(
+            test,
+            test.GetRequiredService<InertiaContext>().Render("Users/Index", new Dictionary<string, object> { ["count"] = failing })));
+
+        Assert.Equal("boom", exception.Message);
     }
 
     static ModelStateDictionary InvalidState()

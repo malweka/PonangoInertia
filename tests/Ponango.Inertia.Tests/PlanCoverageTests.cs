@@ -322,7 +322,7 @@ public class PlanCoverageTests
     }
 
     [Fact]
-    public async Task Shared_props_metadata_reflects_final_emitted_shared_keys()
+    public async Task Shared_props_metadata_lists_shared_keys_even_when_a_partial_reload_skips_them()
     {
         using var test = TestInfrastructure.CreateContext();
         var httpContext = test.HttpContext;
@@ -346,9 +346,10 @@ public class PlanCoverageTests
         Assert.True(props.TryGetProperty("auth", out _));
         Assert.True(props.TryGetProperty("users", out _));
         Assert.False(props.TryGetProperty("nav", out _));
+        // "nav" stays listed although this response skips its value; "users" is overridden by a page prop.
         Assert.Contains("auth", sharedProps);
+        Assert.Contains("nav", sharedProps);
         Assert.DoesNotContain("users", sharedProps);
-        Assert.DoesNotContain("nav", sharedProps);
     }
 
     [Fact]

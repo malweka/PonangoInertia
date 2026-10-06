@@ -11,7 +11,6 @@ public class ScrollProp : IResolvableProp, IMergeableProp, IDeferrableProp, IMer
     private readonly Func<Task<object>> _callback;
     private readonly Func<object?, ScrollMetadata> _metadata;
     private readonly List<string> _matchOn = new();
-    private Task<object>? _resolved;
     private bool _defer;
     private string _group = "default";
 
@@ -44,10 +43,8 @@ public class ScrollProp : IResolvableProp, IMergeableProp, IDeferrableProp, IMer
     /// <summary>The key, inside the prop value, of the array the client merges (default <c>data</c>).</summary>
     public string Wrapper { get; }
 
-    /// <summary>
-    /// Resolves the value. The callback runs at most once per instance, so the metadata callback sees the same value.
-    /// </summary>
-    public Task<object> InvokeAsync() => _resolved ??= _callback();
+    /// <summary>Runs the value callback.</summary>
+    public Task<object> InvokeAsync() => _callback();
 
     /// <summary>
     /// Loads the prop in a follow-up request instead of the initial visit. The full visit then announces it in

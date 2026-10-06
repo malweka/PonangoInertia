@@ -8,7 +8,7 @@ It is intended to remain stable even if planning notes are removed.
 
 The adapter must emit an Inertia page object with:
 - `component`
-- `url`
+- `url` (path base, path and query string of the request unless set explicitly; no scheme or host)
 - `version`
 - `props` (always containing an `errors` object, `{}` when there are no errors)
 
@@ -74,7 +74,9 @@ Shared props may be provided through:
 
 Flash data is not a shared prop: it is emitted in the top-level `flash` page field.
 
-The page object’s `sharedProps` metadata must reflect the keys that were actually emitted.
+The page object’s `sharedProps` metadata must list every shared top-level key that a page prop does not
+override. It must be emitted on partial reloads too, whether or not the response includes the shared values,
+because the client replaces its list with each response.
 
 ## Partial reload behavior
 

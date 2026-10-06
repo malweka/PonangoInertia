@@ -182,6 +182,27 @@ public class NestedPropsTests
     }
 
     [Fact]
+    public async Task Dot_key_merges_into_an_async_lazy_shared_object()
+    {
+        using var test = Inertia_();
+        var inertia = test.GetRequiredService<InertiaContext>();
+        inertia.Share("auth", (Func<Task<object>>)(async () =>
+        {
+            await Task.Yield();
+            return new { name = "Alice" };
+        }));
+
+        using var document = await TestHelpers.ExecuteJsonAsync(test, inertia.Render("Page", new Dictionary<string, object>
+        {
+            ["auth.can"] = new { edit = true }
+        }));
+
+        var auth = Props(document).GetProperty("auth");
+        Assert.Equal("Alice", auth.GetProperty("name").GetString());
+        Assert.True(auth.GetProperty("can").GetProperty("edit").GetBoolean());
+    }
+
+    [Fact]
     public async Task Children_of_a_callback_value_bypass_partial_filters()
     {
         using var test = Inertia_(only: "auth.user");

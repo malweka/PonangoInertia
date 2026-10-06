@@ -106,10 +106,30 @@ A top-level prop key containing dots is now unpacked into nested objects, as in 
 `["auth.user"] = user` is sent as `{ "auth": { "user": ... } }` instead of a literal `"auth.user"` key. Rename such
 keys if you relied on the literal form.
 
-## 8. Binary compatibility
+## 8. Page `url` includes the query string
 
-`Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter. Code compiles
-unchanged, but assemblies built against 2.x must be recompiled.
+The page object's `url` is now the path base, path and query string of the request (`/users?page=2`). With 2.x
+it was the path only, so the client removed the query string from the address bar after each visit. If you
+worked around that by setting `InertiaResult.Url` yourself, you can remove the workaround; an explicit `Url`
+still wins.
+
+## 9. `sharedProps` on partial reloads
+
+`sharedProps` now lists every shared key on every response, including partial reloads that do not return the
+shared values. With 2.x a partial reload dropped the list, and the client then stopped carrying shared props
+over during instant visits. No code change is needed.
+
+## 10. Serializer options are configured once
+
+The `InertiaOptions.JsonSerializerOptions` callback (or your own `IJsonSerializerOptionBuilder`) now runs once
+and the resulting options are reused for every response. It used to run on every response. Make sure the
+callback does not depend on the current request.
+
+## 11. Binary compatibility
+
+`Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter, and
+`DeferredProp`, `MergeProp` and `OptionalProp` now inherit their fluent modifiers (`Once`, `Append`, ...) from
+shared base classes. Code compiles unchanged, but assemblies built against 2.x must be recompiled.
 
 ## New features worth adopting
 
@@ -121,6 +141,6 @@ unchanged, but assemblies built against 2.x must be recompiled.
 - Nested prop types with dot-notation reloads: `router.reload({ only: ['auth.notifications'] })`.
 - Exact 64-bit integers: `options.PreserveBigIntegers = true`.
 - Every validation message per field: `options.WithAllErrors = true`.
-- Lazy props: `(Func<object>)(() => query.ToList())` is only evaluated when included.
+- Lazy props: a delegate such as `(Func<object>)(() => query.ToList())` is only evaluated when included.
 
 See [advanced-topics.md](./advanced-topics.md) for details.

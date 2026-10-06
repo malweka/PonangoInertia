@@ -50,7 +50,7 @@ namespace Ponango.Inertia
             {
                 ViewData = ViewData,
                 ViewName = viewName,
-                Url = HttpContext.Request.Path,
+                Url = InertiaExtensions.GetPageUrl(HttpContext.Request),
                 InertiaContext = InertiaContext
             };
         }

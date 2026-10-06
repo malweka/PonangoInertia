@@ -166,7 +166,7 @@ namespace Ponango.Inertia
             var request = httpContext.Request;
 
             if (string.IsNullOrWhiteSpace(Url))
-                Url = request.Path;
+                Url = InertiaExtensions.GetPageUrl(request);
 
             IServiceProvider serviceProvider = httpContext.RequestServices;
             var options = serviceProvider.GetService<IOptions<InertiaOptions>>()?.Value;
@@ -179,7 +179,7 @@ namespace Ponango.Inertia
 
             // The effective serializer settings, so nested prop paths use the same names the JSON will have.
             var serializerOptionBuilder = serviceProvider.GetService<IJsonSerializerOptionBuilder>();
-            var serializerOptions = serializerOptionBuilder == null ? null : PageModel.CreateSerializerOptions(serializerOptionBuilder);
+            var serializerOptions = serializerOptionBuilder == null ? null : PageModel.GetSerializerOptions(serializerOptionBuilder);
 
             if (!InertiaContext.IsInertia)
             {
@@ -275,8 +275,9 @@ namespace Ponango.Inertia
             if (resolver.ScrollProps.Count > 0)
                 pageModel.ScrollProps = resolver.ScrollProps;
 
-            // sharedProps lists only the shared keys that were actually emitted.
-            sharedPropKeys.IntersectWith(resolvedProps.Keys);
+            // sharedProps lists every shared key that a page prop does not override, whether or not this response
+            // includes its value (a partial reload usually doesn't), as in the reference adapter. The client
+            // replaces the list on each response and only carries over the keys it actually holds.
             if (sharedPropKeys.Count > 0 && options?.ExposeSharedPropKeys != false)
                 pageModel.SharedProps = sharedPropKeys.ToList();
 

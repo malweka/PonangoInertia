@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -65,31 +66,54 @@ namespace Ponango.Inertia
         public bool? PreserveBigIntegers { get; set; }
 
         public string ToJson(IJsonSerializerOptionBuilder serializerOptions)
+            => JsonSerializer.Serialize(this, GetSerializerOptions(serializerOptions, PreserveBigIntegers == true));
+
+        // Options are built once per builder and reused: System.Text.Json caches its type metadata per options
+        // instance, so new options (or new converter instances) on every response would rebuild that metadata.
+        private static readonly ConditionalWeakTable<IJsonSerializerOptionBuilder, SerializerOptionsCache> OptionsCache = new();
+
+        /// <summary>
+        /// The serializer options configured by <paramref name="serializerOptions"/>. The returned instance is
+        /// shared and must not be modified.
+        /// </summary>
+        internal static JsonSerializerOptions GetSerializerOptions(
+            IJsonSerializerOptionBuilder serializerOptions,
+            bool preserveBigIntegers = false)
         {
-            var options = CreateSerializerOptions(serializerOptions);
-
-            // Inserted first so they take precedence over any user converter for the same types.
-            if (PreserveBigIntegers == true)
-            {
-                options.Converters.Insert(0, new BigIntegerJsonElementConverter());
-                options.Converters.Insert(0, new BigIntegerConverterFactory());
-            }
-
-            return JsonSerializer.Serialize(this, options);
+            var cache = OptionsCache.GetValue(serializerOptions, static builder => new SerializerOptionsCache(builder));
+            return preserveBigIntegers ? cache.WithBigIntegers : cache.Default;
         }
 
-        internal static JsonSerializerOptions CreateSerializerOptions(IJsonSerializerOptionBuilder serializerOptions)
+        private sealed class SerializerOptionsCache
         {
-            var options = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                WriteIndented = false,
-                ReferenceHandler = ReferenceHandler.IgnoreCycles
-            };
+            private readonly Lazy<JsonSerializerOptions> _withBigIntegers;
 
-            serializerOptions.SetSerializerOptions(options);
-            return options;
+            public SerializerOptionsCache(IJsonSerializerOptionBuilder builder)
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                    WriteIndented = false,
+                    ReferenceHandler = ReferenceHandler.IgnoreCycles
+                };
+
+                builder.SetSerializerOptions(options);
+                Default = options;
+
+                _withBigIntegers = new Lazy<JsonSerializerOptions>(() =>
+                {
+                    // Inserted first so they take precedence over any user converter for the same types.
+                    var withBigIntegers = new JsonSerializerOptions(Default);
+                    withBigIntegers.Converters.Insert(0, BigIntegerJsonElementConverter.Instance);
+                    withBigIntegers.Converters.Insert(0, BigIntegerConverterFactory.Instance);
+                    return withBigIntegers;
+                });
+            }
+
+            public JsonSerializerOptions Default { get; }
+
+            public JsonSerializerOptions WithBigIntegers => _withBigIntegers.Value;
         }
     }
 }

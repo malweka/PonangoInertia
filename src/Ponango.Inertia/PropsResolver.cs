@@ -1,3 +1,6 @@
+using System.Collections.Concurrent;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
 using Microsoft.Extensions.Logging;
 
 namespace Ponango.Inertia;
@@ -21,6 +24,8 @@ internal sealed class PropsResolver
 
     // Guards against pathological nesting (and cycles in dictionaries).
     private const int MaxDepth = 32;
+
+    private static readonly ConcurrentDictionary<Type, bool> LazyDelegateTypes = new();
 
     public PropsResolver(
         InertiaRequestHeaders headers,
@@ -58,8 +63,8 @@ internal sealed class PropsResolver
     /// dots (<c>"auth.user"</c>) are unpacked into nested objects first, and prop types nested inside dictionaries
     /// and anonymous objects are resolved with dot-notation paths.
     /// </summary>
-    public Task<Dictionary<string, object?>> ResolveAsync(IEnumerable<KeyValuePair<string, object?>> props)
-        => ResolvePropsAsync(UnpackDotProps(props), prefix: "", parentWasResolved: false, depth: 0);
+    public async Task<Dictionary<string, object?>> ResolveAsync(IEnumerable<KeyValuePair<string, object?>> props)
+        => await ResolvePropsAsync(await UnpackDotPropsAsync(props), prefix: "", parentWasResolved: false, depth: 0);
 
     async Task<Dictionary<string, object?>> ResolvePropsAsync(
         IEnumerable<KeyValuePair<string, object?>> props,
@@ -127,7 +132,7 @@ internal sealed class PropsResolver
 
         foreach (var (key, child) in _containers.Entries(container))
         {
-            if (child is IResolvableProp or Func<object>)
+            if (child is IResolvableProp || IsLazy(child))
                 return true;
 
             if (PropContainers.IsContainer(child) && NeedsResolution(child!, $"{path}.{key}", childrenBypassFilters, depth + 1))
@@ -145,7 +150,7 @@ internal sealed class PropsResolver
     }
 
     // Moves top-level "a.b.c" keys into nested dictionaries, as the reference adapter's unpackDotProps does.
-    List<KeyValuePair<string, object?>> UnpackDotProps(IEnumerable<KeyValuePair<string, object?>> props)
+    async Task<List<KeyValuePair<string, object?>>> UnpackDotPropsAsync(IEnumerable<KeyValuePair<string, object?>> props)
     {
         var list = props.ToList();
         if (!list.Any(entry => entry.Key.Contains('.')))
@@ -168,8 +173,8 @@ internal sealed class PropsResolver
                 current.TryGetValue(segments[i], out var existing);
 
                 // Evaluate lazy delegates and reshape containers along the path so the leaf can be set.
-                if (existing is Func<object> lazy)
-                    existing = lazy();
+                if (IsLazy(existing))
+                    existing = await InvokeLazyAsync(existing!);
 
                 // Only dictionaries created here are mutated; caller-owned containers are copied first.
                 if (existing is not Dictionary<string, object?> next || !created.Contains(next))
@@ -259,8 +264,8 @@ internal sealed class PropsResolver
     async Task<(bool Resolved, object? Value)> TryResolveValueAsync(object? prop, string path)
     {
         // A plain delegate is a lazily evaluated regular prop: it only runs when the prop is included.
-        if (prop is Func<object> lazy)
-            return (true, await UnwrapTaskAsync(lazy()));
+        if (IsLazy(prop))
+            return (true, await InvokeLazyAsync(prop!));
 
         if (prop is not IResolvableProp resolvable)
             return (true, prop);
@@ -277,9 +282,50 @@ internal sealed class PropsResolver
         }
     }
 
-    // Func<T> is covariant, so a Func<Task<T>> also arrives here as a Func<object> returning a task.
+    // Any delegate without parameters that returns a value is lazy, whatever its return type: a lambda returning
+    // an int is a Func<int>, which is not a Func<object>.
+    static bool IsLazy(object? value)
+        => value is Func<object>
+           || (value is Delegate && LazyDelegateTypes.GetOrAdd(value.GetType(), IsParameterlessFunction));
+
+    static bool IsParameterlessFunction(Type delegateType)
+    {
+        var invoke = delegateType.GetMethod(nameof(Action.Invoke))!;
+        return invoke.GetParameters().Length == 0 && invoke.ReturnType != typeof(void);
+    }
+
+    static async Task<object?> InvokeLazyAsync(object lazy)
+    {
+        if (lazy is Func<object> func)
+            return await UnwrapTaskAsync(func());
+
+        object? value;
+        try
+        {
+            value = ((Delegate)lazy).DynamicInvoke();
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException != null)
+        {
+            // Surface the callback's own exception, as a direct call would.
+            ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            throw;
+        }
+
+        return await UnwrapTaskAsync(value);
+    }
+
     static async Task<object?> UnwrapTaskAsync(object? value)
     {
+        if (value is ValueTask valueTask)
+        {
+            await valueTask;
+            return null;
+        }
+
+        // ValueTask<T> is a struct with no common base type; convert it to a Task<T>.
+        if (value?.GetType() is { IsGenericType: true } valueType && valueType.GetGenericTypeDefinition() == typeof(ValueTask<>))
+            value = valueType.GetMethod(nameof(ValueTask<object>.AsTask))!.Invoke(value, null);
+
         if (value is not Task task)
             return value;
 

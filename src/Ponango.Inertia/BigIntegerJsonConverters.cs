@@ -15,6 +15,9 @@ internal sealed class BigIntegerConverterFactory : JsonConverterFactory
     internal const long MaxSafeInteger = 9007199254740991;
     internal const string MarkerKey = "$bigint";
 
+    // One shared instance: serializer options compare converters by reference when reusing cached metadata.
+    internal static readonly BigIntegerConverterFactory Instance = new();
+
     public override bool CanConvert(Type typeToConvert)
         => typeToConvert == typeof(long)
            || typeToConvert == typeof(ulong)
@@ -75,6 +78,8 @@ internal sealed class BigIntegerConverterFactory : JsonConverterFactory
 /// </summary>
 internal sealed class BigIntegerJsonElementConverter : JsonConverter<JsonElement>
 {
+    internal static readonly BigIntegerJsonElementConverter Instance = new();
+
     public override JsonElement Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         => JsonElement.ParseValue(ref reader);
 

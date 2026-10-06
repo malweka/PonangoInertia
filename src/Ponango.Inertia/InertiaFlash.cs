@@ -7,8 +7,8 @@ namespace Ponango.Inertia;
 
 /// <summary>
 /// Provides one-time flash messaging backed by ASP.NET Core TempData.
-/// Flash values are written into shared props for the next Inertia response
-/// and are automatically cleared afterwards by TempData semantics.
+/// Flash values are emitted in the top-level <c>flash</c> field of the next rendered Inertia page
+/// and are cleared once they have been read.
 /// </summary>
 public class InertiaFlash
 {
@@ -22,8 +22,8 @@ public class InertiaFlash
     }
 
     /// <summary>
-    /// Stores a flash value. It will appear in shared props on the very next response and
-    /// then be cleared. The value is serialised to JSON so complex objects are supported.
+    /// Stores a flash value. It appears in the <c>flash</c> field of the next rendered page and
+    /// is then cleared. The value is serialised to JSON so complex objects are supported.
     /// </summary>
     public void Flash(string key, object value)
     {
@@ -35,8 +35,7 @@ public class InertiaFlash
     }
 
     /// <summary>
-    /// Reads all flash values out of TempData and returns them as a dictionary.
-    /// Calling Keep() is NOT called here — TempData will remove them after the response.
+    /// Reads all flash values out of TempData, removes them, and returns them as a dictionary.
     /// </summary>
     internal Dictionary<string, object?> ReadAll()
     {

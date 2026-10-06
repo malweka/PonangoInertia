@@ -3,7 +3,7 @@ namespace Ponango.Inertia;
 /// <summary>
 /// A prop whose value is produced lazily, only when the prop is actually included in a response.
 /// </summary>
-public interface IResolvableProp
+internal interface IResolvableProp
 {
     /// <summary>Produces the prop value.</summary>
     Task<object?> ResolveAsync();
@@ -13,7 +13,7 @@ public interface IResolvableProp
 /// Marks a prop that is never resolved on a full (non-partial) visit.
 /// Implemented by <see cref="OptionalProp"/> and <see cref="DeferredProp"/>.
 /// </summary>
-public interface IIgnoreFirstLoad
+internal interface IIgnoreFirstLoad
 {
 }
 
@@ -21,7 +21,7 @@ public interface IIgnoreFirstLoad
 /// A prop that is announced in the page object's <c>deferredProps</c> on a full visit and fetched by the client
 /// in a follow-up partial reload.
 /// </summary>
-public interface IDeferrableProp
+internal interface IDeferrableProp
 {
     /// <summary>Whether the prop is deferred.</summary>
     bool ShouldDefer { get; }
@@ -33,7 +33,7 @@ public interface IDeferrableProp
 /// <summary>
 /// A prop whose value the client merges with existing data on partial reloads instead of replacing it.
 /// </summary>
-public interface IMergeableProp
+internal interface IMergeableProp
 {
     /// <summary>Whether merge metadata should be emitted.</summary>
     bool ShouldMerge { get; }
@@ -64,7 +64,7 @@ public interface IMergeableProp
 /// A prop that the client remembers after it was resolved once, sending its key back in
 /// <c>X-Inertia-Except-Once-Props</c> so the server can skip it.
 /// </summary>
-public interface IOnceableProp
+internal interface IOnceableProp
 {
     /// <summary>Whether once semantics apply.</summary>
     bool ShouldResolveOnce { get; }
@@ -83,7 +83,7 @@ public interface IOnceableProp
 /// A prop whose resolution errors can be rescued: the prop is omitted, the exception is logged, and the key is
 /// listed in the page object's <c>rescuedProps</c>.
 /// </summary>
-public interface IRescuableProp
+internal interface IRescuableProp
 {
     /// <summary>Whether resolution errors are rescued.</summary>
     bool ShouldRescue { get; }

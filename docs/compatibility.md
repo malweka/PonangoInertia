@@ -26,7 +26,7 @@ Legend:
 |---|---|---|
 | `component` | ✅ | |
 | `props` | ✅ | Always includes `errors` (`{}` when empty) |
-| `url` | ✅ | Request path by default; settable via `InertiaResult.Url` |
+| `url` | ✅ | Path base, path and query string by default; settable via `InertiaResult.Url` |
 | `version` | ✅ | From `IAssetVersionProvider` |
 | `encryptHistory` | ✅ | `InertiaOptions.EncryptHistory`, `WithEncryptHistory()` |
 | `clearHistory` | ✅ | `WithClearHistory()` |
@@ -36,7 +36,7 @@ Legend:
 | `scrollProps` | ✅ | Includes `reset`; page numbers or cursors |
 | `deferredProps` | ✅ | Grouped |
 | `rescuedProps` | ✅ | `Inertia.Defer(..., rescue: true)` |
-| `sharedProps` | ✅ | Can be turned off with `ExposeSharedPropKeys = false` |
+| `sharedProps` | ✅ | Sent on every response, partial reloads included. Can be turned off with `ExposeSharedPropKeys = false` |
 | `onceProps` | ✅ | `expiresAt` in Unix milliseconds, custom keys |
 | `flash` | ✅ | Top-level field, backed by TempData |
 | `preserveBigIntegers` | ✅ | With `{"$bigint": "…"}` markers |
@@ -78,7 +78,7 @@ Legend:
 | Item | Status | Notes |
 |---|---|---|
 | `<script type="application/json" data-page="{appId}">` payload | ✅ | `Html.InertiaRender(...)` |
-| `/` escaped as `\/` in the payload | ✅ | `<` is escaped as `<` too |
+| `/` escaped as `\/` in the payload | ✅ | `<` is escaped as `\u003c` too |
 | Several Inertia apps on one page | ✅ | Distinct `appId` per app |
 
 ## Props and data
@@ -86,7 +86,7 @@ Legend:
 | Inertia feature | Status | Adapter API |
 |---|---|---|
 | Regular props | ✅ | `Render(component, props)`, `With(key, value)` |
-| Lazy evaluation (closures) | ✅ | `(Func<object>)(() => …)` values |
+| Lazy evaluation (closures) | ✅ | Delegate values that take no arguments: `Func<T>`, `Func<Task<T>>` |
 | [Partial reloads](https://inertiajs.com/docs/v3/data-props/partial-reloads) | ✅ | `only` / `except`, including nested dot paths |
 | Optional props | ✅ | `Inertia.Optional(...)` |
 | Always props | ✅ | `Inertia.Always(...)` |

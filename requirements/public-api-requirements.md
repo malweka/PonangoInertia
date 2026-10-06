@@ -44,6 +44,12 @@ Prop wrappers should be composable through fluent modifiers:
 
 `InertiaContext` should expose `Share(...)` and `ShareOnce(...)`.
 
+A prop value that is a delegate taking no arguments and returning a value should be evaluated lazily, whatever
+its return type.
+
+The interfaces the resolver uses to describe prop behavior (`IResolvableProp` and the other capability
+interfaces) are internal. Prop types defined outside the library are not a supported extension point.
+
 ## Controller conveniences
 
 `InertiaController` should expose:
@@ -74,7 +80,7 @@ Default component derivation should support route-based naming, including area/c
 - `WithAllErrors`
 - `ExposeSharedPropKeys`
 - `SharedData`
-- `JsonSerializerOptions`
+- `JsonSerializerOptions` (applied once; the resulting options are reused for every response)
 
 ## Location responses
 

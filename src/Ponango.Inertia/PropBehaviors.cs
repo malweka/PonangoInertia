@@ -20,8 +20,6 @@ internal sealed class MergeBehavior : IMergeableProp
 
     bool MergesAtRoot => _appendPaths.Count == 0 && _prependPaths.Count == 0;
 
-    public void Merge() => ShouldMerge = true;
-
     public void DeepMerge()
     {
         ShouldDeepMerge = true;

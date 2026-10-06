@@ -28,13 +28,12 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
   nested paths (`router.reload({ only: ["auth.notifications"] })`). Containers without wrappers serialize as before.
 - `InertiaOptions.WithAllErrors` sends every validation message per field as an array.
 - `InertiaOptions.ExposeSharedPropKeys` (default `true`) can turn off the `sharedProps` list.
-- Lazy delegate props: a `Func<object>` (or `Func<Task<T>>`) prop value is only evaluated when the response
-  includes it. It used to be handed to the serializer as is.
+- Lazy delegate props: a prop value that is a delegate taking no arguments and returning a value (`Func<object>`,
+  `Func<int>`, `Func<Task<T>>`, `Func<ValueTask<T>>`) is only evaluated when the response includes it. It used to
+  be handed to the serializer as is.
 - `Inertia.Scroll(...)` / `ScrollProp` for infinite scroll, matching `Inertia::scroll()`: merges the array under a
   wrapper key (`mergeProps: ["posts.data"]`), supports page numbers and cursors (`ScrollMetadata.ForPage`,
   `ScrollMetadata.ForCursor`), `MatchingOn`, and `.Defer()`.
-- Public capability interfaces (`IResolvableProp`, `IIgnoreFirstLoad`, `IDeferrableProp`, `IMergeableProp`,
-  `IOnceableProp`, `IRescuableProp`) describing how the resolver treats a prop.
 
 ### Changed
 
@@ -43,6 +42,9 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 - `MergeProp.WithScroll(...)` is obsolete in favor of `Inertia.Scroll(...)`. Its `scrollProps` entry now includes
   `reset` (`true` when the prop is reset) and emits `null` page values explicitly instead of omitting them.
 - Shared props are emitted before page props in `props` (page props still win on key conflicts).
+- Serializer options are built once per `IJsonSerializerOptionBuilder` instance and reused, instead of on every
+  response. The `InertiaOptions.JsonSerializerOptions` callback therefore runs once and should not depend on
+  the current request.
 
 ### Fixed
 
@@ -54,6 +56,12 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
   seconds, so every once prop with an expiry looked expired and was fetched again on every visit.
 - Partial reloads that send both `X-Inertia-Partial-Data` and `X-Inertia-Partial-Except` now remove the
   excepted props. The except list used to be ignored whenever a data list was present.
+- `page.url` now includes the path base and the query string (`/users?page=2`). It was the request path only,
+  so the client dropped the query string from the address bar and from history.
+- `sharedProps` now lists every shared key that a page prop does not override, including on partial reloads
+  that skip the shared values, as in the reference adapter. It used to list only the keys present in the
+  response, so a partial reload (a deferred prop loading, for example) cleared the client's list and later
+  instant visits lost the shared props.
 - The initial-page script payload escapes every `/` as `\/` and every `<` as `\u003c`, so prop data can't close
   the script element early, whatever the configured JSON encoder or casing of `</script>`.
 
@@ -73,8 +81,10 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
     client keeps the fragment (prefetch requests excepted).
 - Top-level prop keys containing dots (`["auth.user"] = ...`) are now unpacked into nested objects (`auth.user`),
   as in the reference adapter. They used to be emitted as literal `"auth.user"` keys.
-- `Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter. Source
-  compatible, but code compiled against 2.x must be recompiled.
+- `Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter, and
+  `DeferredProp`, `MergeProp` and `OptionalProp` now inherit their fluent modifiers from the new
+  `MergeModifiers<TSelf>` / `OnceModifiers<TSelf>` base classes. Source compatible, but code compiled against
+  2.x must be recompiled.
 
 ## 2.1.0
 

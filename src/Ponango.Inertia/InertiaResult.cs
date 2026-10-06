@@ -177,10 +177,14 @@ namespace Ponango.Inertia
             var logger = serviceProvider.GetService<ILoggerFactory>()?.CreateLogger("Ponango.Inertia")
                          ?? (ILogger)NullLogger.Instance;
 
+            // The effective serializer settings, so nested prop paths use the same names the JSON will have.
+            var serializerOptionBuilder = serviceProvider.GetService<IJsonSerializerOptionBuilder>();
+            var serializerOptions = serializerOptionBuilder == null ? null : PageModel.CreateSerializerOptions(serializerOptionBuilder);
+
             if (!InertiaContext.IsInertia)
             {
                 var viewData = ViewData;
-                viewData.Model = await BuildPageModelAsync(fullVisit: true, options, logger);
+                viewData.Model = await BuildPageModelAsync(fullVisit: true, options, logger, serializerOptions);
                 var viewResult = new ViewResult
                 {
                     ViewData = viewData,
@@ -193,7 +197,7 @@ namespace Ponango.Inertia
 
             IJsonSerializerOptionBuilder jsonSerializerOptionBuilder = serviceProvider.GetRequiredService<IJsonSerializerOptionBuilder>();
 
-            var pageModel = await BuildPageModelAsync(fullVisit: false, options, logger);
+            var pageModel = await BuildPageModelAsync(fullVisit: false, options, logger, serializerOptions);
 
             var contentResult = new ContentResult
             {
@@ -207,7 +211,11 @@ namespace Ponango.Inertia
             await contentResult.ExecuteResultAsync(context);
         }
 
-        async Task<PageModel> BuildPageModelAsync(bool fullVisit, InertiaOptions? options, ILogger logger)
+        async Task<PageModel> BuildPageModelAsync(
+            bool fullVisit,
+            InertiaOptions? options,
+            ILogger logger,
+            System.Text.Json.JsonSerializerOptions? serializerOptions)
         {
             var props = new List<KeyValuePair<string, object?>>(Props.Count + InertiaContext.SharedProps.Count + 1);
             var sharedPropKeys = new HashSet<string>(StringComparer.Ordinal);
@@ -219,7 +227,9 @@ namespace Ponango.Inertia
                     continue;
 
                 props.Add(new(shared.Key, shared.Value));
-                sharedPropKeys.Add(shared.Key);
+
+                // A dotted shared key ("auth.user") is reported by its top-level key.
+                sharedPropKeys.Add(shared.Key.Split('.')[0]);
             }
 
             foreach (var prop in Props)
@@ -229,7 +239,7 @@ namespace Ponango.Inertia
             if (!props.Any(prop => prop.Key == "errors"))
                 props.Add(new("errors", new Dictionary<string, object>()));
 
-            var resolver = new PropsResolver(InertiaContext.Headers, isInertia: !fullVisit, Component, logger);
+            var resolver = new PropsResolver(InertiaContext.Headers, isInertia: !fullVisit, Component, logger, serializerOptions);
             var resolvedProps = await resolver.ResolveAsync(props);
 
             var pageModel = new PageModel

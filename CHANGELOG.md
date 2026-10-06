@@ -21,6 +21,9 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 - Big integer support: `InertiaOptions.PreserveBigIntegers` and `InertiaResult.WithPreserveBigIntegers(...)` send
   integers outside JavaScript's safe range (in props and flash) as `{"$bigint": "..."}` markers and set the
   `preserveBigIntegers` page flag, so Inertia 3.8+ clients receive exact `BigInt` values.
+- Nested prop types and dot notation: wrappers and lazy delegates inside anonymous objects and string-keyed
+  dictionaries are resolved, their metadata uses dot paths (`auth.notifications`), and partial reloads can target
+  nested paths (`router.reload({ only: ["auth.notifications"] })`). Containers without wrappers serialize as before.
 - `InertiaOptions.WithAllErrors` sends every validation message per field as an array.
 - `InertiaOptions.ExposeSharedPropKeys` (default `true`) can turn off the `sharedProps` list.
 - Lazy delegate props: a `Func<object>` (or `Func<Task<T>>`) prop value is only evaluated when the response
@@ -60,6 +63,8 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
   `props.flash`. Read it with `usePage().flash` or the `flash` event; the client no longer stores it in history,
   so it does not reappear on Back. A prop you share as `flash` is now an ordinary prop and is not merged with
   flashed values, and `flash` no longer appears in `sharedProps`.
+- Top-level prop keys containing dots (`["auth.user"] = ...`) are now unpacked into nested objects (`auth.user`),
+  as in the reference adapter. They used to be emitted as literal `"auth.user"` keys.
 - `props.errors` is now always present, as `{}` when there are no errors.
 - Partial reloads that send only `X-Inertia-Partial-Except` now also resolve optional and deferred props that
   are not excluded, matching the reference adapter. Full visits still never resolve them.

@@ -269,6 +269,43 @@ return _inertia.Render("Users/Index", new Dictionary<string, object>
 | `Inertia.Optional(...)` | never | when requested | only when included |
 | `Inertia.Always(...)` | always | always | always |
 
+### Nested props and dot notation
+
+Prop wrappers and lazy delegates also work inside nested anonymous objects and string-keyed dictionaries. Their
+metadata uses dot-notation paths, and the client's `only`/`except` options, `<Deferred>` and `<WhenVisible>` can
+target them:
+
+```csharp
+return _inertia.Render("Dashboard", new
+{
+    auth = new
+    {
+        user = currentUser,
+        notifications = Inertia.Defer(() => _notifications.Unread()),   // deferredProps: { default: ["auth.notifications"] }
+        invoices = Inertia.Optional(() => _billing.Invoices()),
+    }
+});
+```
+
+```js
+router.reload({ only: ['auth.notifications'] })   // returns only auth.notifications (and its ancestors)
+```
+
+Rules:
+
+- A partial path includes the prop at that path, its descendants and its ancestors; `except` paths remove the
+  prop and its descendants.
+- The children of a value produced by a callback (a wrapper or `Func<object>`) are not filtered again: the
+  callback's whole result is sent.
+- Only anonymous objects and dictionaries with string keys are walked. Other objects (classes, records, lists) are
+  sent as they are, so a nested path inside one selects the whole object.
+- A container is only rebuilt when it holds a prop type or a partial reload targets a path inside it. Rebuilt
+  anonymous objects keep your naming policy and null-skipping settings; untouched ones serialize exactly as
+  before. Paths use the JSON names (for example `auth.userName` with camelCase).
+- Top-level keys containing dots are unpacked into nested objects, merging into an existing shared or page prop
+  with the same first segment: `["auth.can"] = ...` adds `can` to the shared `auth` object. Shared props keep
+  being reported in `sharedProps` by their top-level key.
+
 ## History and navigation flags
 
 These flags affect the emitted page object:

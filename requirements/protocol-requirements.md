@@ -85,6 +85,8 @@ Supported partial reload headers:
 - `X-Inertia-Reset`
 
 Rules:
+- partial paths may use dot notation: a path selects that prop, its descendants and its ancestors; prop types
+  nested in anonymous objects and string-keyed dictionaries are resolved and reported with dot paths
 - `errors` must always be preserved
 - `AlwaysProp` must always be preserved
 - when both data and except lists are sent, the data list narrows first, then the except list is removed

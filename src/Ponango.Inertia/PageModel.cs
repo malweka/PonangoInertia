@@ -66,15 +66,7 @@ namespace Ponango.Inertia
 
         public string ToJson(IJsonSerializerOptionBuilder serializerOptions)
         {
-            var options = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                WriteIndented = false,
-                ReferenceHandler = ReferenceHandler.IgnoreCycles
-            };
-
-            serializerOptions.SetSerializerOptions(options);
+            var options = CreateSerializerOptions(serializerOptions);
 
             // Inserted first so they take precedence over any user converter for the same types.
             if (PreserveBigIntegers == true)
@@ -84,6 +76,20 @@ namespace Ponango.Inertia
             }
 
             return JsonSerializer.Serialize(this, options);
+        }
+
+        internal static JsonSerializerOptions CreateSerializerOptions(IJsonSerializerOptionBuilder serializerOptions)
+        {
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                WriteIndented = false,
+                ReferenceHandler = ReferenceHandler.IgnoreCycles
+            };
+
+            serializerOptions.SetSerializerOptions(options);
+            return options;
         }
     }
 }

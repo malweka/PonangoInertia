@@ -17,8 +17,17 @@ internal sealed class PropsResolver
     private readonly HashSet<string> _loadedOnceProps;
     private readonly string? _mergeIntent;
     private readonly ILogger _logger;
+    private readonly PropContainers _containers;
 
-    public PropsResolver(InertiaRequestHeaders headers, bool isInertia, string component, ILogger logger)
+    // Guards against pathological nesting (and cycles in dictionaries).
+    private const int MaxDepth = 32;
+
+    public PropsResolver(
+        InertiaRequestHeaders headers,
+        bool isInertia,
+        string component,
+        ILogger logger,
+        System.Text.Json.JsonSerializerOptions? serializerOptions = null)
     {
         _isInertia = isInertia;
         _isPartial = isInertia &&
@@ -30,6 +39,7 @@ internal sealed class PropsResolver
         _loadedOnceProps = ParseHeader(headers.ExceptOnceProps) ?? new HashSet<string>(StringComparer.Ordinal);
         _mergeIntent = headers.MergeIntent;
         _logger = logger;
+        _containers = new PropContainers(serializerOptions);
     }
 
     public bool IsPartial => _isPartial;
@@ -44,19 +54,29 @@ internal sealed class PropsResolver
     public Dictionary<string, object> OnceProps { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// Resolves the given props, in order, and returns the ones the response should include.
+    /// Resolves the given props, in order, and returns the ones the response should include. Top-level keys with
+    /// dots (<c>"auth.user"</c>) are unpacked into nested objects first, and prop types nested inside dictionaries
+    /// and anonymous objects are resolved with dot-notation paths.
     /// </summary>
-    public async Task<Dictionary<string, object?>> ResolveAsync(IEnumerable<KeyValuePair<string, object?>> props)
+    public Task<Dictionary<string, object?>> ResolveAsync(IEnumerable<KeyValuePair<string, object?>> props)
+        => ResolvePropsAsync(UnpackDotProps(props), prefix: "", parentWasResolved: false, depth: 0);
+
+    async Task<Dictionary<string, object?>> ResolvePropsAsync(
+        IEnumerable<KeyValuePair<string, object?>> props,
+        string prefix,
+        bool parentWasResolved,
+        int depth)
     {
         var result = new Dictionary<string, object?>(StringComparer.Ordinal);
 
         foreach (var (key, original) in props)
         {
-            var path = key;
+            var path = prefix.Length == 0 ? key : $"{prefix}.{key}";
             var prop = original;
 
-            // On partial requests only the requested paths are included. Always props and errors bypass this.
-            if (!ShouldIncludeInPartialResponse(prop, path))
+            // On partial requests only the requested paths are included. Always props, errors, and the children
+            // of a value produced by a callback bypass this.
+            if (!ShouldIncludeInPartialResponse(prop, path, parentWasResolved))
                 continue;
 
             // On full visits some prop types are excluded before resolution, so their callbacks never run.
@@ -82,15 +102,101 @@ internal sealed class PropsResolver
             }
 
             CollectMetadata(prop, path, value);
-            result[key] = value;
+
+            // Walk into dictionaries and anonymous objects that hold prop types or are targeted by a nested
+            // partial path. A value that came out of a callback has already been selected, so its children
+            // bypass the partial filters.
+            var childrenBypassFilters = parentWasResolved || !PropContainers.IsContainer(prop);
+            result[key] = depth < MaxDepth && PropContainers.IsContainer(value) && NeedsResolution(value!, path, childrenBypassFilters, depth)
+                ? await ResolvePropsAsync(_containers.Entries(value!), path, childrenBypassFilters, depth + 1)
+                : value;
         }
 
         return result;
     }
 
-    bool ShouldIncludeInPartialResponse(object? prop, string path)
+    // Whether a container must be rebuilt: it (transitively) holds a prop type or lazy delegate, or a partial
+    // reload filters paths below it. Otherwise it is left untouched so it serializes exactly as before.
+    bool NeedsResolution(object container, string path, bool childrenBypassFilters, int depth)
     {
-        if (!_isPartial || prop is AlwaysProp || path == "errors")
+        if (_isPartial && !childrenBypassFilters && FilterTargetsBelow(path))
+            return true;
+
+        if (depth >= MaxDepth)
+            return false;
+
+        foreach (var (key, child) in _containers.Entries(container))
+        {
+            if (child is IResolvableProp or Func<object>)
+                return true;
+
+            if (PropContainers.IsContainer(child) && NeedsResolution(child!, $"{path}.{key}", childrenBypassFilters, depth + 1))
+                return true;
+        }
+
+        return false;
+    }
+
+    bool FilterTargetsBelow(string path)
+    {
+        var prefix = path + ".";
+        return (_only?.Any(only => only.StartsWith(prefix, StringComparison.Ordinal)) ?? false)
+               || (_except?.Any(except => except.StartsWith(prefix, StringComparison.Ordinal)) ?? false);
+    }
+
+    // Moves top-level "a.b.c" keys into nested dictionaries, as the reference adapter's unpackDotProps does.
+    List<KeyValuePair<string, object?>> UnpackDotProps(IEnumerable<KeyValuePair<string, object?>> props)
+    {
+        var list = props.ToList();
+        if (!list.Any(entry => entry.Key.Contains('.')))
+            return list;
+
+        var root = new Dictionary<string, object?>(StringComparer.Ordinal);
+        var created = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        foreach (var (key, value) in list)
+        {
+            if (!key.Contains('.'))
+            {
+                root[key] = value;
+                continue;
+            }
+
+            var segments = key.Split('.');
+            var current = root;
+            for (var i = 0; i < segments.Length - 1; i++)
+            {
+                current.TryGetValue(segments[i], out var existing);
+
+                // Evaluate lazy delegates and reshape containers along the path so the leaf can be set.
+                if (existing is Func<object> lazy)
+                    existing = lazy();
+
+                // Only dictionaries created here are mutated; caller-owned containers are copied first.
+                if (existing is not Dictionary<string, object?> next || !created.Contains(next))
+                {
+                    next = new Dictionary<string, object?>(StringComparer.Ordinal);
+                    created.Add(next);
+                    if (PropContainers.IsContainer(existing))
+                    {
+                        foreach (var (childKey, childValue) in _containers.Entries(existing!))
+                            next[childKey] = childValue;
+                    }
+
+                    current[segments[i]] = next;
+                }
+
+                current = next;
+            }
+
+            current[segments[^1]] = value;
+        }
+
+        return root.ToList();
+    }
+
+    bool ShouldIncludeInPartialResponse(object? prop, string path, bool parentWasResolved)
+    {
+        if (!_isPartial || prop is AlwaysProp || path == "errors" || parentWasResolved)
             return true;
 
         return PathMatchesPartialRequest(path);

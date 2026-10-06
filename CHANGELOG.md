@@ -8,6 +8,7 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 
 - Version-mismatch `409` responses now echo the current asset version in `X-Inertia-Version`.
 - Precognitive actions add `Precognition` to the `Vary` header on every response.
+- `InertiaResult.WithFlash(IDictionary<string, object?>)` flashes several values at once.
 
 ### Fixed
 
@@ -20,6 +21,10 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 
 ### Breaking changes
 
+- Flash data is now emitted in the page object's top-level `flash` field, as Inertia v3 expects, instead of
+  `props.flash`. Read it with `usePage().flash` or the `flash` event; the client no longer stores it in history,
+  so it does not reappear on Back. A prop you share as `flash` is now an ordinary prop and is not merged with
+  flashed values, and `flash` no longer appears in `sharedProps`.
 - `props.errors` is now always present, as `{}` when there are no errors.
 - Partial reloads that send only `X-Inertia-Partial-Except` now also resolve optional and deferred props that
   are not excluded, matching the reference adapter. Full visits still never resolve them.

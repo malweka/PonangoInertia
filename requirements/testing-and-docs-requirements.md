@@ -15,7 +15,7 @@ Coverage should include:
 - prop wrapper semantics
 - error bags
 - precognition
-- flash merging
+- flash data emitted at page level (`page.flash`)
 - external redirects
 - prefetch handling
 - infinite scroll metadata

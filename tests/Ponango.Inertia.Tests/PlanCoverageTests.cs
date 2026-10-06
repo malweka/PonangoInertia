@@ -480,14 +480,13 @@ public class PlanCoverageTests
     }
 
     [Fact]
-    public async Task Flash_values_are_emitted_once_and_merge_with_object_shaped_flash()
+    public async Task Flash_values_are_emitted_once_at_page_level()
     {
         using var test = TestInfrastructure.CreateContext();
         var httpContext = test.HttpContext;
         httpContext.Request.Headers["X-Inertia"] = "true";
         var inertia = test.GetRequiredService<InertiaContext>();
 
-        inertia.Share("flash", new { existing = "keep" });
         inertia.Flash("success", "created");
 
         await inertia.Render("Users/Index", new { })
@@ -495,9 +494,8 @@ public class PlanCoverageTests
 
         using (var first = await TestInfrastructure.ReadJsonAsync(httpContext.Response))
         {
-            var flash = first.RootElement.GetProperty("props").GetProperty("flash");
-            Assert.Equal("keep", flash.GetProperty("existing").GetString());
-            Assert.Equal("created", flash.GetProperty("success").GetString());
+            Assert.Equal("created", first.RootElement.GetProperty("flash").GetProperty("success").GetString());
+            Assert.False(first.RootElement.GetProperty("props").TryGetProperty("flash", out _));
         }
 
         ResetResponse(httpContext);
@@ -507,7 +505,7 @@ public class PlanCoverageTests
             .ExecuteResultAsync(TestInfrastructure.CreateActionContext(httpContext));
 
         using var second = await TestInfrastructure.ReadJsonAsync(httpContext.Response);
-        Assert.False(second.RootElement.GetProperty("props").TryGetProperty("flash", out _));
+        Assert.False(second.RootElement.TryGetProperty("flash", out _));
     }
 
     [Fact]

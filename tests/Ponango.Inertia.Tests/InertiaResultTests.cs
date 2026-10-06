@@ -7,7 +7,7 @@ namespace Ponango.Inertia.Tests;
 public class InertiaResultTests
 {
     [Fact]
-    public async Task Flash_is_merged_with_existing_shared_flash_values()
+    public async Task Flash_is_emitted_at_page_level_and_shared_flash_prop_is_independent()
     {
         using var test = TestInfrastructure.CreateContext();
         var httpContext = test.HttpContext;
@@ -23,10 +23,16 @@ public class InertiaResultTests
         await result.ExecuteResultAsync(TestInfrastructure.CreateActionContext(httpContext));
 
         using var document = await TestInfrastructure.ReadJsonAsync(httpContext.Response);
-        var flash = document.RootElement.GetProperty("props").GetProperty("flash");
 
-        Assert.Equal("keep", flash.GetProperty("existing").GetString());
+        // A shared prop named "flash" is now just an ordinary prop...
+        var sharedFlash = document.RootElement.GetProperty("props").GetProperty("flash");
+        Assert.Equal("keep", sharedFlash.GetProperty("existing").GetString());
+        Assert.False(sharedFlash.TryGetProperty("success", out _));
+
+        // ...while flashed values live in the page object's top-level flash field.
+        var flash = document.RootElement.GetProperty("flash");
         Assert.Equal("created", flash.GetProperty("success").GetString());
+        Assert.False(flash.TryGetProperty("existing", out _));
     }
 
     [Fact]

@@ -74,9 +74,7 @@ namespace Ponango.Inertia
         }
 
         /// <summary>
-        /// Adds validation errors to the response props. When an error bag name is provided
-        /// (or the X-Inertia-Error-Bag request header is present), errors are scoped under
-        /// that bag name so multiple forms on the same page can have independent error sets.
+        /// Adds or replaces a page prop.
         /// </summary>
         public InertiaResult With(string key, object value)
         {
@@ -85,6 +83,10 @@ namespace Ponango.Inertia
             return this;
         }
 
+        /// <summary>
+        /// Flashes a one-time value. It is emitted in the page object's top-level <c>flash</c> field
+        /// (not in props) and is not persisted in the client's history state.
+        /// </summary>
         public InertiaResult WithFlash(string key, object value)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
@@ -92,6 +94,23 @@ namespace Ponango.Inertia
             return this;
         }
 
+        /// <summary>
+        /// Flashes several one-time values at once. See <see cref="WithFlash(string, object)"/>.
+        /// </summary>
+        public InertiaResult WithFlash(IDictionary<string, object?> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            foreach (var entry in values)
+                WithFlash(entry.Key, entry.Value!);
+
+            return this;
+        }
+
+        /// <summary>
+        /// Adds validation errors to the response props. When an error bag name is provided
+        /// (or the X-Inertia-Error-Bag request header is present), errors are scoped under
+        /// that bag name so multiple forms on the same page can have independent error sets.
+        /// </summary>
         public InertiaResult WithErrors(ModelStateDictionary modelState, string? errorBag = null)
         {
             if (modelState == null || modelState.IsValid) return this;
@@ -126,9 +145,6 @@ namespace Ponango.Inertia
 
             if (string.IsNullOrWhiteSpace(Url))
                 Url = request.Path;
-
-            // Merge any pending flash values into shared props before building the page object
-            InertiaContext.MergeFlashIntoSharedProps();
 
             IServiceProvider serviceProvider = httpContext.RequestServices;
             var options = serviceProvider.GetService<IOptions<InertiaOptions>>()?.Value;
@@ -302,6 +318,12 @@ namespace Ponango.Inertia
 
             if (_preserveFragment == true)
                 pageModel.PreserveFragment = true;
+
+            // Flash is read (and cleared) only when a page is actually built, so a version-mismatch 409
+            // leaves it for the follow-up request.
+            var flash = InertiaContext.PullFlash();
+            if (flash.Count > 0)
+                pageModel.Flash = flash;
 
             return pageModel;
         }

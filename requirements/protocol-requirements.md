@@ -24,6 +24,7 @@ Optional page object fields must be emitted only when applicable:
 - `deferredProps`
 - `sharedProps`
 - `onceProps`
+- `flash` (only when flash data exists; never inside `props`)
 
 ## Initial HTML response
 
@@ -65,7 +66,8 @@ For Inertia GET requests:
 Shared props may be provided through:
 - `InertiaContext.Share(...)`
 - `InertiaOptions.SharedData`
-- flash message integration
+
+Flash data is not a shared prop: it is emitted in the top-level `flash` page field.
 
 The page object’s `sharedProps` metadata must reflect the keys that were actually emitted.
 

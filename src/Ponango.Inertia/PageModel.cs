@@ -51,6 +51,11 @@ namespace Ponango.Inertia
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public Dictionary<string, object>? OnceProps { get; set; }
 
+        // Flash data for this response (v3 - only serialized when present; the client exposes it as
+        // page.flash and does not persist it in history state)
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public IDictionary<string, object?>? Flash { get; set; }
+
         public string ToJson(IJsonSerializerOptionBuilder serializerOptions)
         {
             var options = new JsonSerializerOptions

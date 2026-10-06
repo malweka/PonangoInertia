@@ -52,16 +52,36 @@ Shared keys are tracked in the page object’s `sharedProps` field.
 
 ## Flash messages
 
-`WithFlash(...)` stores one-time data and merges it into the response being
-built:
+`WithFlash(...)` stores one-time data that is delivered with the next rendered page, even across a
+redirect:
 
 ```csharp
 return _inertia.Render("Users/Index", new { users })
     .WithFlash("success", "User created");
 ```
 
-Flash values are exposed under the `flash` prop, backed by ASP.NET Core
-TempData, and cleared after they are read.
+Several values can be flashed at once with `WithFlash(new Dictionary<string, object?> { ... })`, or
+from anywhere in the request with `InertiaContext.Flash(key, value)`.
+
+Flash values are emitted in the page object's top-level `flash` field, not in `props`. They are backed by
+ASP.NET Core TempData and cleared once a page has been rendered with them. A version-mismatch `409` does not
+consume them.
+
+```json
+{ "component": "Users/Index", "props": { "errors": {} }, "url": "/users", "version": "…", "flash": { "success": "User created" } }
+```
+
+On the client, read them from `usePage().flash` or listen for the `flash` event. Unlike props, flash data is
+not stored in browser history, so it does not reappear when the user navigates back:
+
+```js
+router.on('flash', (event) => {
+  if (event.detail.flash.success) showToast(event.detail.flash.success)
+})
+```
+
+A prop you share under the name `flash` (for example with `Share("flash", ...)`) is an ordinary prop and is
+not merged with flashed values.
 
 ## Validation errors and error bags
 

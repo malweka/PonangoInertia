@@ -67,7 +67,9 @@ See [docs/getting-started.md](./docs/getting-started.md) for the full setup: pac
 - error bags and precognition
 - history flags: `encryptHistory`, `clearHistory`, `preserveFragment`
 - prefetch detection
-- infinite scroll metadata via `scrollProps`
+- infinite scroll via `Inertia.Scroll(...)` (page numbers or cursors, `scrollProps`)
+- composable prop modifiers: deferred + merge, once on deferred/merge/optional props, rescued deferred props
+- big integers beyond JavaScript's safe range delivered as `BigInt` (`PreserveBigIntegers`)
 - external location responses via `Location(...)`
 
 ## Example APIs
@@ -120,6 +122,7 @@ builder.Services.AddInertia(options =>
 {
     options.RootView = "Inertia";
     options.EncryptHistory = true;
+    options.PreserveBigIntegers = true; // 64-bit IDs arrive as BigInt (client 3.8.0+)
     options.SharedData = ctx => new Dictionary<string, object>
     {
         ["appName"] = "My Application"

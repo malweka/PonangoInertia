@@ -23,6 +23,7 @@ Compatibility APIs should remain marked obsolete while they are still supported.
 - `WithEncryptHistory(...)`
 - `WithClearHistory(...)`
 - `WithPreserveFragment(...)`
+- `WithPreserveBigIntegers(...)`
 
 ## Static factory helpers
 
@@ -69,6 +70,7 @@ Default component derivation should support route-based naming, including area/c
 `InertiaOptions` should support:
 - `RootView`
 - `EncryptHistory`
+- `PreserveBigIntegers`
 - `SharedData`
 - `JsonSerializerOptions`
 

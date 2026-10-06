@@ -26,6 +26,10 @@ Optional page object fields must be emitted only when applicable:
 - `sharedProps`
 - `onceProps`
 - `flash` (only when flash data exists; never inside `props`)
+- `preserveBigIntegers` (only when big integer support is enabled for the response)
+
+When big integer support is enabled, integers outside ±(2^53 - 1) in props and flash must be written as
+`{"$bigint": "<digits>"}` markers.
 
 ## Initial HTML response
 

@@ -45,6 +45,7 @@ namespace Ponango.Inertia
         private bool? _encryptHistory;
         private bool? _clearHistory;
         private bool? _preserveFragment;
+        private bool? _preserveBigIntegers;
 
         /// <summary>
         /// Instructs the client to encrypt this page's history entry.
@@ -72,6 +73,17 @@ namespace Ponango.Inertia
         public InertiaResult WithPreserveFragment(bool preserve = true)
         {
             _preserveFragment = preserve;
+            return this;
+        }
+
+        /// <summary>
+        /// Sends integers outside JavaScript's safe range as <c>{"$bigint": "..."}</c> markers that the client revives as
+        /// <c>BigInt</c> values. Overrides <see cref="InertiaOptions.PreserveBigIntegers"/> for this response; pass
+        /// <c>false</c> to opt out when it is enabled globally.
+        /// </summary>
+        public InertiaResult WithPreserveBigIntegers(bool preserve = true)
+        {
+            _preserveBigIntegers = preserve;
             return this;
         }
 
@@ -260,6 +272,9 @@ namespace Ponango.Inertia
 
             if (_preserveFragment == true)
                 pageModel.PreserveFragment = true;
+
+            if (_preserveBigIntegers ?? options?.PreserveBigIntegers ?? false)
+                pageModel.PreserveBigIntegers = true;
 
             // Flash is read (and cleared) only when a page is actually built, so a version-mismatch 409
             // leaves it for the follow-up request.

@@ -354,6 +354,46 @@ its merge label, but no `scrollProps` until it is loaded.
 (`mergeProps: ["posts"]`), only supports page numbers, and its `scrollProps` entry now also includes `reset` and
 explicit `null` page values. Move to `Inertia.Scroll(...)`, wrapping the items in a `data` key.
 
+## Big integers
+
+JavaScript rounds integers outside its safe range (±9,007,199,254,740,991) when it parses JSON, so a 64-bit ID
+such as `900719925474099988` reaches your components as `900719925474100000`. Enable big integer support to
+deliver those values exactly, as native `BigInt` values:
+
+```csharp
+builder.Services.AddInertia(options =>
+{
+    options.PreserveBigIntegers = true;
+});
+```
+
+Or per response, which also lets you opt a single response out when it is enabled globally:
+
+```csharp
+return _inertia.Render("Orders/Show", new { order }).WithPreserveBigIntegers();
+return _inertia.Render("Reports/Index", props).WithPreserveBigIntegers(false);
+```
+
+When enabled, `long`, `ulong`, `Int128`, `UInt128` and `BigInteger` values outside the safe range, in props and
+flash data (including values held in `JsonElement`s), are written as markers, and the page is flagged:
+
+```json
+{ "props": { "errors": {}, "id": { "$bigint": "900719925474099988" }, "count": 3 }, "preserveBigIntegers": true }
+```
+
+Values inside the safe range stay plain numbers, so the same prop may arrive as a `number` or a `BigInt`
+depending on its value. `decimal` and `double` values are never converted. Dictionary keys are JSON strings
+already and keep their digits. The marker converters take precedence over any converter you register for these
+types.
+
+Requirements and notes:
+
+- The client revives markers only on pages flagged with `preserveBigIntegers`, and only from
+  `@inertiajs/vue3`, `@inertiajs/react` or `@inertiajs/svelte` **3.8.0** or later.
+- A `BigInt` submitted through the router, a form or Precognition is sent as its digits, so it binds to a `long`
+  action parameter or model property like any other number.
+- The `useHttp` hook does not handle `BigInt`; convert those values to strings before sending them.
+
 ## External redirects
 
 Use `Location(...)` for an external navigation response:

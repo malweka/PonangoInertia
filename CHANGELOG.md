@@ -18,6 +18,9 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 - Merging at nested paths: `Inertia.Merge(...).Append("data", matchOn: "id")` emits `mergeProps: ["users.data"]`,
   plus `Prepend(path)` and dictionary overloads for several paths.
 - `Inertia.DeepMerge(...)` factory and `InertiaContext.ShareOnce(...)`.
+- Big integer support: `InertiaOptions.PreserveBigIntegers` and `InertiaResult.WithPreserveBigIntegers(...)` send
+  integers outside JavaScript's safe range (in props and flash) as `{"$bigint": "..."}` markers and set the
+  `preserveBigIntegers` page flag, so Inertia 3.8+ clients receive exact `BigInt` values.
 - `Inertia.Scroll(...)` / `ScrollProp` for infinite scroll, matching `Inertia::scroll()`: merges the array under a
   wrapper key (`mergeProps: ["posts.data"]`), supports page numbers and cursors (`ScrollMetadata.ForPage`,
   `ScrollMetadata.ForCursor`), `MatchingOn`, and `.Defer()`.

@@ -60,6 +60,10 @@ namespace Ponango.Inertia
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public IDictionary<string, object?>? Flash { get; set; }
 
+        // Big integers (v3 - when true, the client revives {"$bigint": "..."} markers as BigInt values)
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? PreserveBigIntegers { get; set; }
+
         public string ToJson(IJsonSerializerOptionBuilder serializerOptions)
         {
             var options = new JsonSerializerOptions
@@ -71,6 +75,13 @@ namespace Ponango.Inertia
             };
 
             serializerOptions.SetSerializerOptions(options);
+
+            // Inserted first so they take precedence over any user converter for the same types.
+            if (PreserveBigIntegers == true)
+            {
+                options.Converters.Insert(0, new BigIntegerJsonElementConverter());
+                options.Converters.Insert(0, new BigIntegerConverterFactory());
+            }
 
             return JsonSerializer.Serialize(this, options);
         }

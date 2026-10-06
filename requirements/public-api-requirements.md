@@ -71,6 +71,8 @@ Default component derivation should support route-based naming, including area/c
 - `RootView`
 - `EncryptHistory`
 - `PreserveBigIntegers`
+- `WithAllErrors`
+- `ExposeSharedPropKeys`
 - `SharedData`
 - `JsonSerializerOptions`
 

@@ -152,6 +152,10 @@ internal sealed class PropsResolver
 
     async Task<(bool Resolved, object? Value)> TryResolveValueAsync(object? prop, string path)
     {
+        // A plain delegate is a lazily evaluated regular prop: it only runs when the prop is included.
+        if (prop is Func<object> lazy)
+            return (true, await UnwrapTaskAsync(lazy()));
+
         if (prop is not IResolvableProp resolvable)
             return (true, prop);
 
@@ -165,6 +169,25 @@ internal sealed class PropsResolver
             RescuedProps.Add(path);
             return (false, null);
         }
+    }
+
+    // Func<T> is covariant, so a Func<Task<T>> also arrives here as a Func<object> returning a task.
+    static async Task<object?> UnwrapTaskAsync(object? value)
+    {
+        if (value is not Task task)
+            return value;
+
+        await task;
+
+        var type = task.GetType();
+        while (type != null && !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>)))
+            type = type.BaseType;
+
+        // A non-generic Task (internally Task<VoidTaskResult>) has no meaningful result.
+        if (type == null || type.GetGenericArguments()[0].Name == "VoidTaskResult")
+            return null;
+
+        return type.GetProperty(nameof(Task<object>.Result))!.GetValue(task);
     }
 
     void CollectMetadata(object? prop, string path, object? resolvedValue)

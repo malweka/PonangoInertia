@@ -21,6 +21,10 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 - Big integer support: `InertiaOptions.PreserveBigIntegers` and `InertiaResult.WithPreserveBigIntegers(...)` send
   integers outside JavaScript's safe range (in props and flash) as `{"$bigint": "..."}` markers and set the
   `preserveBigIntegers` page flag, so Inertia 3.8+ clients receive exact `BigInt` values.
+- `InertiaOptions.WithAllErrors` sends every validation message per field as an array.
+- `InertiaOptions.ExposeSharedPropKeys` (default `true`) can turn off the `sharedProps` list.
+- Lazy delegate props: a `Func<object>` (or `Func<Task<T>>`) prop value is only evaluated when the response
+  includes it. It used to be handed to the serializer as is.
 - `Inertia.Scroll(...)` / `ScrollProp` for infinite scroll, matching `Inertia::scroll()`: merges the array under a
   wrapper key (`mergeProps: ["posts.data"]`), supports page numbers and cursors (`ScrollMetadata.ForPage`,
   `ScrollMetadata.ForCursor`), `MatchingOn`, and `.Defer()`.

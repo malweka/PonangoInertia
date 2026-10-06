@@ -129,12 +129,20 @@ namespace Ponango.Inertia
         {
             if (modelState == null || modelState.IsValid) return this;
 
-            var errors = new Dictionary<string, string>();
+            // By default each field gets its first message; with WithAllErrors it gets all of them.
+            var allErrors = InertiaContext?.Request?.HttpContext.RequestServices
+                .GetService<IOptions<InertiaOptions>>()?.Value.WithAllErrors == true;
+
+            var errors = new Dictionary<string, object>();
             foreach (var key in modelState.Keys)
             {
                 var entry = modelState[key];
                 if (entry!.Errors.Count > 0)
-                    errors[key] = entry.Errors[0].ErrorMessage;
+                {
+                    errors[key] = allErrors
+                        ? entry.Errors.Select(error => error.ErrorMessage).ToArray()
+                        : entry.Errors[0].ErrorMessage;
+                }
             }
 
             if (errors.Count == 0) return this;
@@ -259,7 +267,7 @@ namespace Ponango.Inertia
 
             // sharedProps lists only the shared keys that were actually emitted.
             sharedPropKeys.IntersectWith(resolvedProps.Keys);
-            if (sharedPropKeys.Count > 0)
+            if (sharedPropKeys.Count > 0 && options?.ExposeSharedPropKeys != false)
                 pageModel.SharedProps = sharedPropKeys.ToList();
 
             // History encryption: per-response override takes priority, then global default

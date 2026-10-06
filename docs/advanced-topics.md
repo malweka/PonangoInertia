@@ -48,7 +48,9 @@ _inertia.Share("featureFlags", new
 });
 ```
 
-Shared keys are tracked in the page object’s `sharedProps` field.
+Shared keys are tracked in the page object’s `sharedProps` field. The client uses that list to carry shared
+props over to the next page during [instant visits](https://inertiajs.com/docs/v3/the-basics/instant-visits).
+To omit it (values are still sent), set `options.ExposeSharedPropKeys = false`.
 
 ## Flash messages
 
@@ -100,6 +102,16 @@ return _inertia.Render("Users/Create", new { form = request })
 ```
 
 If the client sends `X-Inertia-Error-Bag`, that bag is used automatically unless you explicitly pass one.
+
+By default each field carries its first message (`"email": "Email is required"`). To send every message for each
+field as an array, enable `WithAllErrors`:
+
+```csharp
+builder.Services.AddInertia(options => options.WithAllErrors = true);
+// "errors": { "email": ["Email is required", "Email is invalid"] }
+```
+
+When there are no errors, `props.errors` is still present as `{}`.
 
 ## Prop wrappers
 
@@ -236,6 +248,26 @@ Rules:
   follow the same `only`/`except` filters as any other prop, so `router.reload({ except: ['users'] })` also
   resolves optional and deferred props that are not excluded.
 - Merge metadata is suppressed when the prop key is listed in `X-Inertia-Reset`.
+
+### Lazy evaluation
+
+A prop given as a `Func<object>` (or `Func<Task<T>>`, or any `Func<T>` returning a reference type) is evaluated
+only when the response includes it, so a partial reload that does not request it never runs the query:
+
+```csharp
+return _inertia.Render("Users/Index", new Dictionary<string, object>
+{
+    ["users"] = (Func<object>)(() => _db.Users.ToList()),
+    ["companies"] = (Func<Task<List<Company>>>)(() => _db.Companies.ToListAsync()),
+});
+```
+
+| Approach | Full visits | Partial reloads | Evaluated |
+|---|---|---|---|
+| plain value | always | when requested | always |
+| `Func<object>` | always | when requested | only when included |
+| `Inertia.Optional(...)` | never | when requested | only when included |
+| `Inertia.Always(...)` | always | always | always |
 
 ## History and navigation flags
 

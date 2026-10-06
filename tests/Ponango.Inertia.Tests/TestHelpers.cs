@@ -60,7 +60,8 @@ internal static class TestHelpers
     public static InertiaContext FreshInertia(TestInfrastructure.TestContext test)
         => new(test.HttpContext,
             test.GetRequiredService<IAssetVersionProvider>(),
-            test.GetRequiredService<InertiaFlash>());
+            test.GetRequiredService<InertiaFlash>(),
+            test.GetRequiredService<InertiaValidationErrors>());
 
     public static IReadOnlyList<string?> Strings(JsonElement array)
         => array.EnumerateArray().Select(x => x.GetString()).ToList();

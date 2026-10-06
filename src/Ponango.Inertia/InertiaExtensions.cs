@@ -57,6 +57,19 @@ namespace Ponango.Inertia
             return new InertiaLocationResult(context, url);
         }
 
+        /// <summary>
+        /// Redirects back to the page the request came from (the <c>Referer</c> header) when it is on this host, else
+        /// to <paramref name="fallbackUrl"/>. Non-GET requests get a <c>303</c>, and validation errors in an invalid
+        /// ModelState are kept for that page.
+        /// </summary>
+        public static RedirectResult Back(this InertiaContext context, string fallbackUrl = "/")
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            ArgumentException.ThrowIfNullOrWhiteSpace(fallbackUrl);
+
+            return new InertiaRedirectResult(ResolveBackUrl(context.Request, fallbackUrl));
+        }
+
         [Obsolete("Use Render() instead.")]
         public static InertiaResult Inertia<T>(this InertiaContext context, string viewName,  T model, string component, string propsName = "data")
         {
@@ -92,6 +105,31 @@ namespace Ponango.Inertia
             var url = $"{request.PathBase}{request.Path}{request.QueryString}";
             return url.StartsWith('/') ? url : "/" + url;
         }
+
+        /// <summary>
+        /// The referer's path and query when it points at this host, else <paramref name="fallbackUrl"/>. Never
+        /// another host, so the referer can't be used as an open redirect.
+        /// </summary>
+        static string ResolveBackUrl(HttpRequest? request, string fallbackUrl)
+        {
+            var referer = request?.Headers.Referer.ToString();
+            if (request == null || string.IsNullOrEmpty(referer))
+                return fallbackUrl;
+
+            // The Referer is normally absolute, which IUrlHelper.IsLocalUrl always rejects, so compare hosts instead.
+            if (Uri.TryCreate(referer, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                return InertiaMiddleware.IsExternalUrl(referer, request) ? fallbackUrl : uri.PathAndQuery;
+            }
+
+            return IsLocalPath(referer) ? referer : fallbackUrl;
+        }
+
+        // A rooted path such as "/users", but not "//host" or "/\host", which browsers treat as another host.
+        static bool IsLocalPath(string url)
+            => url.Length > 0 && url[0] == '/'
+               && (url.Length == 1 || (url[1] != '/' && url[1] != '\\'));
 
         static IDictionary<string, object> ToPropsDictionary<T>(T props)
         {

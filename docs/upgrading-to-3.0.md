@@ -129,7 +129,15 @@ callback does not depend on the current request.
 
 `Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter, and
 `DeferredProp`, `MergeProp` and `OptionalProp` now inherit their fluent modifiers (`Once`, `Append`, ...) from
-shared base classes. Code compiles unchanged, but assemblies built against 2.x must be recompiled.
+shared base classes. The `InertiaContext` constructors gained an optional `validationErrors` parameter. Code
+compiles unchanged, but assemblies built against 2.x must be recompiled.
+
+## 12. Validation errors are kept across redirects
+
+When an Inertia `POST`, `PUT`, `PATCH` or `DELETE` request redirects while `ModelState` is invalid, the errors are
+now delivered in `props.errors` of the next rendered page. They used to be dropped. Actions that re-render the page
+with `WithErrors(...)` are unaffected. To keep the old behavior, set
+`options.PersistValidationErrorsOnRedirect = false`.
 
 ## New features worth adopting
 
@@ -142,5 +150,6 @@ shared base classes. Code compiles unchanged, but assemblies built against 2.x m
 - Exact 64-bit integers: `options.PreserveBigIntegers = true`.
 - Every validation message per field: `options.WithAllErrors = true`.
 - Lazy props: a delegate such as `(Func<object>)(() => query.ToList())` is only evaluated when included.
+- Redirect back to a form with its errors: `return _inertia.Back();`, and `FlashErrors(...)` outside MVC.
 
 See [advanced-topics.md](./advanced-topics.md) for details.

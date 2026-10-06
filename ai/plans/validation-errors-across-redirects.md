@@ -1,6 +1,7 @@
 # Plan: Carry validation errors across redirects
 
-- **Status:** not started (deferred)
+- **Status:** done (branch `feat/validation-errors-across-redirects`). Decisions 1 and 3 confirmed by the
+  maintainer; decision 2 resolved from the reference adapter.
 - **Written:** 2026-10-06, against branch `feat/inertia-v3-alignment` (PR #5, the 3.0.0 work)
 - **Re-checked:** 2026-10-06, against `main` at `9bf8ec0` (PR #5 merged, including the review follow-up
   `8aa262e`). `CHANGELOG.md` still has `## 3.0.0 (unreleased)`. Baseline: 133 tests pass, 0 fail.

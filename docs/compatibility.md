@@ -115,9 +115,9 @@ Legend:
 | [Redirects](https://inertiajs.com/docs/v3/the-basics/redirects) | ✅ | Standard MVC redirects; `303` conversion by the middleware |
 | External redirects | ✅ | `Location(url)` |
 | Preserving fragments | ✅ | `WithPreserveFragment()`, and `#fragment` redirect handling |
-| Store previous URL | ❌ | Laravel session feature; use the `Referer` header |
+| Store previous URL | ❌ | Laravel session feature; `Back()` redirects to the `Referer` instead |
 | [Asset versioning](https://inertiajs.com/docs/v3/advanced/asset-versioning) | ✅ | `IAssetVersionProvider`, checked by `UseInertia()` |
-| [Validation](https://inertiajs.com/docs/v3/the-basics/validation) and error bags | ⚠️ | `WithErrors(ModelState, bag)` and the `X-Inertia-Error-Bag` header. Errors are returned when the page is re-rendered; they are not persisted across a redirect the way Laravel's session does |
+| [Validation](https://inertiajs.com/docs/v3/the-basics/validation) and error bags | ✅ | `WithErrors(ModelState, bag)` and the `X-Inertia-Error-Bag` header. Errors are kept across a redirect (TempData), captured automatically from an invalid `ModelState` or stored with `FlashErrors(...)` |
 | Multiple errors per field | ✅ | `InertiaOptions.WithAllErrors` |
 | [Precognition](https://inertiajs.com/docs/v3/the-basics/forms#precognition) | ✅ | `[Precognitive]` with `Precognition-Validate-Only` |
 | [History encryption](https://inertiajs.com/docs/v3/security/history-encryption) | ✅ | Global option and per response; clear history |
@@ -125,7 +125,7 @@ Legend:
 | [Prefetching](https://inertiajs.com/docs/v3/data-props/prefetching) | ✅ | Normal pipeline; `IsPrefetch` to skip side effects |
 | [Instant visits](https://inertiajs.com/docs/v3/the-basics/instant-visits) | ✅ | Relies on `sharedProps`, which is emitted by default |
 | [Error handling](https://inertiajs.com/docs/v3/advanced/error-handling) (custom error pages) | ⚠️ | No helper like `handleExceptionsUsing`; render an Inertia page from your own exception or status-code handler |
-| Empty response → redirect back | ❌ | Return an explicit redirect |
+| Empty response → redirect back | ❌ | Return an explicit redirect, such as `Back()` |
 | [Server-side rendering](https://inertiajs.com/docs/v3/advanced/server-side-rendering) | ❌ | Pages render client-side only |
 | [DevTools](https://inertiajs.com/docs/v3/advanced/devtools) server recorder | ❌ | The browser extension still records client-side data |
 | [Testing](https://inertiajs.com/docs/v3/advanced/testing) helpers (`assertInertia`) | ❌ | Assert on the JSON page object with your own helpers |
@@ -162,4 +162,5 @@ Where Ponango.Inertia intentionally differs from `inertia-laravel`:
 | Nested props | Walks every array | Walks anonymous objects and string-keyed dictionaries; classes, records and lists are sent whole |
 | Merge modifiers | `append(path)` needs a prior `merge()` on deferred props | `Append(path)` / `Prepend(path)` turn merging on |
 | Once modifiers | `as()` / `until()` need `once()` | `As(...)` / `Until(...)` imply `Once()` |
+| Errors after a redirect | Any request that redirects with errors in the session | Inertia non-GET requests that redirect with an invalid `ModelState`, or errors stored with `FlashErrors(...)` |
 | Configuration | `config/inertia.php`, middleware class | `AddInertia(options => …)`, `UseInertia()` |

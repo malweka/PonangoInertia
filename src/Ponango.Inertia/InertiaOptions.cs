@@ -31,6 +31,13 @@ public class InertiaOptions
     public bool WithAllErrors { get; set; } = false;
 
     /// <summary>
+    /// When true (the default), the validation errors of an Inertia non-GET request that ends in a redirect with an
+    /// invalid ModelState are kept for the next rendered page, like Laravel's redirect-back-with-errors. Set to false
+    /// to keep errors only when you call InertiaContext.FlashErrors() yourself.
+    /// </summary>
+    public bool PersistValidationErrorsOnRedirect { get; set; } = true;
+
+    /// <summary>
     /// When true (the default), the page object lists shared prop keys in <c>sharedProps</c>, which the client uses
     /// to carry shared props over during instant visits. Set to false to omit the list; values are still sent.
     /// </summary>

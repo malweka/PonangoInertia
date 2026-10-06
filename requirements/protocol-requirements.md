@@ -141,6 +141,13 @@ Validation errors must support:
 - flat `errors`
 - named error bags
 - automatic use of `X-Inertia-Error-Bag`
+- keeping errors across a redirect: an Inertia non-GET request that redirects with an invalid `ModelState` (unless
+  `PersistValidationErrorsOnRedirect` is off), or errors stored with `FlashErrors(...)`, delivers them in
+  `props.errors` of the next rendered page, once
+- scoping kept errors under the bag of the request that stored them, else under the follow-up request's
+  `X-Inertia-Error-Bag`
+- a page or shared `errors` prop wins over kept errors, which are still cleared
+- a version-mismatch `409` does not consume kept errors
 
 ## Precognition
 

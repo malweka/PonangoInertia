@@ -52,4 +52,35 @@ public class PrecognitionTests
         Assert.Contains("name", result.Content);
         Assert.DoesNotContain("email", result.Content);
     }
+
+    [Fact]
+    public void Precognition_requests_vary_on_precognition_and_keep_existing_vary_values()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        test.HttpContext.Request.Headers["Precognition"] = "true";
+        test.HttpContext.Response.Headers.Vary = "Accept-Encoding";
+
+        new PrecognitiveAttribute().OnActionExecuting(CreateExecutingContext(test));
+
+        Assert.Equal("Accept-Encoding, Precognition", test.HttpContext.Response.Headers.Vary.ToString());
+    }
+
+    [Fact]
+    public void Non_precognition_requests_to_a_precognitive_action_also_vary_on_precognition()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        var executingContext = CreateExecutingContext(test);
+
+        new PrecognitiveAttribute().OnActionExecuting(executingContext);
+
+        Assert.Null(executingContext.Result);
+        Assert.Equal("Precognition", test.HttpContext.Response.Headers.Vary.ToString());
+    }
+
+    static ActionExecutingContext CreateExecutingContext(TestInfrastructure.TestContext test)
+        => new(
+            TestInfrastructure.CreateActionContext(test.HttpContext),
+            new List<IFilterMetadata>(),
+            new Dictionary<string, object?>(),
+            new object());
 }

@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
@@ -43,6 +45,7 @@ namespace Ponango.Inertia
         private bool? _encryptHistory;
         private bool? _clearHistory;
         private bool? _preserveFragment;
+        private bool? _preserveBigIntegers;
 
         /// <summary>
         /// Instructs the client to encrypt this page's history entry.
@@ -74,9 +77,18 @@ namespace Ponango.Inertia
         }
 
         /// <summary>
-        /// Adds validation errors to the response props. When an error bag name is provided
-        /// (or the X-Inertia-Error-Bag request header is present), errors are scoped under
-        /// that bag name so multiple forms on the same page can have independent error sets.
+        /// Sends integers outside JavaScript's safe range as <c>{"$bigint": "..."}</c> markers that the client revives as
+        /// <c>BigInt</c> values. Overrides <see cref="InertiaOptions.PreserveBigIntegers"/> for this response; pass
+        /// <c>false</c> to opt out when it is enabled globally.
+        /// </summary>
+        public InertiaResult WithPreserveBigIntegers(bool preserve = true)
+        {
+            _preserveBigIntegers = preserve;
+            return this;
+        }
+
+        /// <summary>
+        /// Adds or replaces a page prop.
         /// </summary>
         public InertiaResult With(string key, object value)
         {
@@ -85,6 +97,10 @@ namespace Ponango.Inertia
             return this;
         }
 
+        /// <summary>
+        /// Flashes a one-time value. It is emitted in the page object's top-level <c>flash</c> field
+        /// (not in props) and is not persisted in the client's history state.
+        /// </summary>
         public InertiaResult WithFlash(string key, object value)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
@@ -92,16 +108,41 @@ namespace Ponango.Inertia
             return this;
         }
 
+        /// <summary>
+        /// Flashes several one-time values at once. See <see cref="WithFlash(string, object)"/>.
+        /// </summary>
+        public InertiaResult WithFlash(IDictionary<string, object?> values)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            foreach (var entry in values)
+                WithFlash(entry.Key, entry.Value!);
+
+            return this;
+        }
+
+        /// <summary>
+        /// Adds validation errors to the response props. When an error bag name is provided
+        /// (or the X-Inertia-Error-Bag request header is present), errors are scoped under
+        /// that bag name so multiple forms on the same page can have independent error sets.
+        /// </summary>
         public InertiaResult WithErrors(ModelStateDictionary modelState, string? errorBag = null)
         {
             if (modelState == null || modelState.IsValid) return this;
 
-            var errors = new Dictionary<string, string>();
+            // By default each field gets its first message; with WithAllErrors it gets all of them.
+            var allErrors = InertiaContext?.Request?.HttpContext.RequestServices
+                .GetService<IOptions<InertiaOptions>>()?.Value.WithAllErrors == true;
+
+            var errors = new Dictionary<string, object>();
             foreach (var key in modelState.Keys)
             {
                 var entry = modelState[key];
                 if (entry!.Errors.Count > 0)
-                    errors[key] = entry.Errors[0].ErrorMessage;
+                {
+                    errors[key] = allErrors
+                        ? entry.Errors.Select(error => error.ErrorMessage).ToArray()
+                        : entry.Errors[0].ErrorMessage;
+                }
             }
 
             if (errors.Count == 0) return this;
@@ -125,10 +166,7 @@ namespace Ponango.Inertia
             var request = httpContext.Request;
 
             if (string.IsNullOrWhiteSpace(Url))
-                Url = request.Path;
-
-            // Merge any pending flash values into shared props before building the page object
-            InertiaContext.MergeFlashIntoSharedProps();
+                Url = InertiaExtensions.GetPageUrl(request);
 
             IServiceProvider serviceProvider = httpContext.RequestServices;
             var options = serviceProvider.GetService<IOptions<InertiaOptions>>()?.Value;
@@ -136,10 +174,17 @@ namespace Ponango.Inertia
             if (EnsureProtocolFallback(httpContext))
                 return;
 
+            var logger = serviceProvider.GetService<ILoggerFactory>()?.CreateLogger("Ponango.Inertia")
+                         ?? (ILogger)NullLogger.Instance;
+
+            // The effective serializer settings, so nested prop paths use the same names the JSON will have.
+            var serializerOptionBuilder = serviceProvider.GetService<IJsonSerializerOptionBuilder>();
+            var serializerOptions = serializerOptionBuilder == null ? null : PageModel.GetSerializerOptions(serializerOptionBuilder);
+
             if (!InertiaContext.IsInertia)
             {
                 var viewData = ViewData;
-                viewData.Model = await BuildPageModelAsync(fullVisit: true, options);
+                viewData.Model = await BuildPageModelAsync(fullVisit: true, options, logger, serializerOptions);
                 var viewResult = new ViewResult
                 {
                     ViewData = viewData,
@@ -152,7 +197,7 @@ namespace Ponango.Inertia
 
             IJsonSerializerOptionBuilder jsonSerializerOptionBuilder = serviceProvider.GetRequiredService<IJsonSerializerOptionBuilder>();
 
-            var pageModel = await BuildPageModelAsync(fullVisit: false, options);
+            var pageModel = await BuildPageModelAsync(fullVisit: false, options, logger, serializerOptions);
 
             var contentResult = new ContentResult
             {
@@ -166,126 +211,74 @@ namespace Ponango.Inertia
             await contentResult.ExecuteResultAsync(context);
         }
 
-        async Task<PageModel> BuildPageModelAsync(bool fullVisit, InertiaOptions? options = null)
+        async Task<PageModel> BuildPageModelAsync(
+            bool fullVisit,
+            InertiaOptions? options,
+            ILogger logger,
+            System.Text.Json.JsonSerializerOptions? serializerOptions)
         {
-            var props = new Dictionary<string, object>(Props);
-            var headers = InertiaContext.Headers;
-            var partialComponent = headers.PartialComponent;
-            var isPartialRequest = !fullVisit &&
-                                   !string.IsNullOrEmpty(partialComponent) &&
-                                   partialComponent == Component;
-
-            var partialData = isPartialRequest
-                ? ParseCommaSeparated(headers.PartialData).ToHashSet(StringComparer.Ordinal)
-                : new HashSet<string>(StringComparer.Ordinal);
-            var partialExcept = isPartialRequest
-                ? ParseCommaSeparated(headers.PartialExcept).ToHashSet(StringComparer.Ordinal)
-                : new HashSet<string>(StringComparer.Ordinal);
-            var exceptOnceProps = ParseCommaSeparated(headers.ExceptOnceProps).ToHashSet(StringComparer.Ordinal);
-            var resetProps = ParseCommaSeparated(headers.Reset).ToHashSet(StringComparer.Ordinal);
-            var mergeIntent = headers.MergeIntent;
-
+            var props = new List<KeyValuePair<string, object?>>(Props.Count + InertiaContext.SharedProps.Count + 1);
             var sharedPropKeys = new HashSet<string>(StringComparer.Ordinal);
 
-            // Merge shared props with lower priority than page-specific props.
-            if (InertiaContext.SharedProps != null)
+            // Shared props have lower priority than page props and come first, as in the reference adapter.
+            foreach (var shared in InertiaContext.SharedProps)
             {
-                foreach (var kvp in InertiaContext.SharedProps)
-                {
-                    if (props.ContainsKey(kvp.Key))
-                        continue;
-
-                    props[kvp.Key] = kvp.Value;
-                    sharedPropKeys.Add(kvp.Key);
-                }
-            }
-
-            var deferredPropsMap = new Dictionary<string, List<string>>();
-            var mergePropsKeys = new List<string>();
-            var prependPropsKeys = new List<string>();
-            var deepMergePropsKeys = new List<string>();
-            var matchPropsOnKeys = new List<string>();
-            var oncePropsMap = new Dictionary<string, object>();
-            var scrollPropsMap = new Dictionary<string, object>();
-
-            foreach (var key in props.Keys.ToList())
-            {
-                var value = props[key];
-                if (!ShouldIncludeProp(
-                        key,
-                        value,
-                        isPartialRequest,
-                        partialData,
-                        partialExcept,
-                        exceptOnceProps,
-                        deferredPropsMap,
-                        oncePropsMap))
-                {
-                    props.Remove(key);
-                    sharedPropKeys.Remove(key);
+                if (Props.ContainsKey(shared.Key))
                     continue;
-                }
 
-                if (value is MergeProp mergeProp && !resetProps.Contains(key))
-                {
-                    var effectiveMergeMode = GetEffectiveMergeMode(mergeProp.Mode, mergeIntent);
+                props.Add(new(shared.Key, shared.Value));
 
-                    switch (effectiveMergeMode)
-                    {
-                        case MergeMode.Append:
-                            mergePropsKeys.Add(key);
-                            break;
-                        case MergeMode.Prepend:
-                            prependPropsKeys.Add(key);
-                            break;
-                        case MergeMode.DeepMerge:
-                            deepMergePropsKeys.Add(key);
-                            break;
-                    }
-
-                    if (!string.IsNullOrEmpty(mergeProp.MatchOn))
-                        matchPropsOnKeys.Add($"{key}.{mergeProp.MatchOn}");
-                }
-
-                if (value is MergeProp scrollMergeProp && scrollMergeProp.ScrollConfig != null)
-                    scrollPropsMap[key] = scrollMergeProp.ScrollConfig;
+                // A dotted shared key ("auth.user") is reported by its top-level key.
+                sharedPropKeys.Add(shared.Key.Split('.')[0]);
             }
 
-            // Evaluate all remaining prop wrappers to their actual values
-            await EvaluatePropsAsync(props);
+            foreach (var prop in Props)
+                props.Add(new(prop.Key, prop.Value));
 
-            // Build the page model with all metadata
+            // The protocol requires an errors object on every page, even when there are no errors.
+            if (!props.Any(prop => prop.Key == "errors"))
+                props.Add(new("errors", new Dictionary<string, object>()));
+
+            var resolver = new PropsResolver(InertiaContext.Headers, isInertia: !fullVisit, Component, logger, serializerOptions);
+            var resolvedProps = await resolver.ResolveAsync(props);
+
             var pageModel = new PageModel
             {
                 Component = Component,
                 Url = Url ?? string.Empty,
                 Version = AssetsVersion,
-                Props = props
+                Props = resolvedProps
             };
 
             // Populate optional page object fields (only when non-empty)
-            if (deferredPropsMap.Count > 0)
-                pageModel.DeferredProps = deferredPropsMap;
+            if (resolver.DeferredProps.Count > 0)
+                pageModel.DeferredProps = resolver.DeferredProps;
 
-            if (mergePropsKeys.Count > 0)
-                pageModel.MergeProps = mergePropsKeys;
+            if (resolver.RescuedProps.Count > 0)
+                pageModel.RescuedProps = resolver.RescuedProps;
 
-            if (prependPropsKeys.Count > 0)
-                pageModel.PrependProps = prependPropsKeys;
+            if (resolver.MergeProps.Count > 0)
+                pageModel.MergeProps = resolver.MergeProps;
 
-            if (deepMergePropsKeys.Count > 0)
-                pageModel.DeepMergeProps = deepMergePropsKeys;
+            if (resolver.PrependProps.Count > 0)
+                pageModel.PrependProps = resolver.PrependProps;
 
-            if (matchPropsOnKeys.Count > 0)
-                pageModel.MatchPropsOn = matchPropsOnKeys;
+            if (resolver.DeepMergeProps.Count > 0)
+                pageModel.DeepMergeProps = resolver.DeepMergeProps;
 
-            if (oncePropsMap.Count > 0)
-                pageModel.OnceProps = oncePropsMap;
+            if (resolver.MatchPropsOn.Count > 0)
+                pageModel.MatchPropsOn = resolver.MatchPropsOn;
 
-            if (scrollPropsMap.Count > 0)
-                pageModel.ScrollProps = scrollPropsMap;
+            if (resolver.OnceProps.Count > 0)
+                pageModel.OnceProps = resolver.OnceProps;
 
-            if (sharedPropKeys.Count > 0)
+            if (resolver.ScrollProps.Count > 0)
+                pageModel.ScrollProps = resolver.ScrollProps;
+
+            // sharedProps lists every shared key that a page prop does not override, whether or not this response
+            // includes its value (a partial reload usually doesn't), as in the reference adapter. The client
+            // replaces the list on each response and only carries over the keys it actually holds.
+            if (sharedPropKeys.Count > 0 && options?.ExposeSharedPropKeys != false)
                 pageModel.SharedProps = sharedPropKeys.ToList();
 
             // History encryption: per-response override takes priority, then global default
@@ -298,6 +291,15 @@ namespace Ponango.Inertia
 
             if (_preserveFragment == true)
                 pageModel.PreserveFragment = true;
+
+            if (_preserveBigIntegers ?? options?.PreserveBigIntegers ?? false)
+                pageModel.PreserveBigIntegers = true;
+
+            // Flash is read (and cleared) only when a page is actually built, so a version-mismatch 409
+            // leaves it for the follow-up request.
+            var flash = InertiaContext.PullFlash();
+            if (flash.Count > 0)
+                pageModel.Flash = flash;
 
             return pageModel;
         }
@@ -319,140 +321,8 @@ namespace Ponango.Inertia
 
             httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
             httpContext.Response.Headers["X-Inertia-Location"] = httpContext.Request.GetEncodedUrl();
+            httpContext.Response.Headers["X-Inertia-Version"] = AssetsVersion;
             return true;
         }
-
-        static bool ShouldIncludeProp(
-            string key,
-            object value,
-            bool isPartialRequest,
-            HashSet<string> partialData,
-            HashSet<string> partialExcept,
-            HashSet<string> exceptOnceProps,
-            Dictionary<string, List<string>> deferredPropsMap,
-            Dictionary<string, object> oncePropsMap)
-        {
-            if (key == "errors" || value is AlwaysProp)
-                return true;
-
-            if (value is DeferredProp deferred)
-            {
-                if (!isPartialRequest)
-                {
-                    AddDeferredPropMetadata(deferredPropsMap, deferred.Group, key);
-                    return false;
-                }
-
-                return partialData.Contains(key);
-            }
-
-            if (value is OptionalProp)
-                return isPartialRequest && partialData.Contains(key);
-
-#pragma warning disable CS0618
-            if (value is LazyProp)
-                return isPartialRequest && partialData.Contains(key);
-#pragma warning restore CS0618
-
-            if (value is OnceProp onceProp)
-            {
-                if (exceptOnceProps.Contains(key) || !PassesPartialFilter(key, value, isPartialRequest, partialData, partialExcept))
-                    return false;
-
-                AddOncePropMetadata(oncePropsMap, key, onceProp);
-                return true;
-            }
-
-            return PassesPartialFilter(key, value, isPartialRequest, partialData, partialExcept);
-        }
-
-        static bool PassesPartialFilter(
-            string key,
-            object value,
-            bool isPartialRequest,
-            HashSet<string> partialData,
-            HashSet<string> partialExcept)
-        {
-            if (!isPartialRequest)
-                return true;
-
-            if (value is AlwaysProp || key == "errors")
-                return true;
-
-            if (partialData.Count > 0)
-                return partialData.Contains(key);
-
-            return !partialExcept.Contains(key);
-        }
-
-        static void AddDeferredPropMetadata(Dictionary<string, List<string>> deferredPropsMap, string group, string key)
-        {
-            if (!deferredPropsMap.TryGetValue(group, out var keys))
-            {
-                keys = new List<string>();
-                deferredPropsMap[group] = keys;
-            }
-
-            keys.Add(key);
-        }
-
-        static void AddOncePropMetadata(Dictionary<string, object> oncePropsMap, string key, OnceProp onceProp)
-        {
-            var entry = new Dictionary<string, object?> { ["prop"] = key };
-            if (onceProp.ExpiresAfter.HasValue)
-                entry["expiresAt"] = DateTimeOffset.UtcNow.Add(onceProp.ExpiresAfter.Value).ToUnixTimeSeconds();
-            else
-                entry["expiresAt"] = null;
-
-            oncePropsMap[key] = entry;
-        }
-
-        static MergeMode GetEffectiveMergeMode(MergeMode configuredMode, string? mergeIntent)
-        {
-            if (configuredMode == MergeMode.DeepMerge)
-                return configuredMode;
-
-            return mergeIntent?.Trim().ToLowerInvariant() switch
-            {
-                "prepend" => MergeMode.Prepend,
-                "append" => MergeMode.Append,
-                _ => configuredMode
-            };
-        }
-
-        /// <summary>
-        /// Evaluate all prop wrapper types to their resolved values.
-        /// Supports async evaluation for all prop types.
-        /// </summary>
-        static async Task EvaluatePropsAsync(Dictionary<string, object> props)
-        {
-            foreach (var key in props.Keys.ToList())
-            {
-                var value = props[key];
-                props[key] = value switch
-                {
-                    AlwaysProp always => await always.InvokeAsync(),
-                    OptionalProp optional => await optional.InvokeAsync(),
-                    DeferredProp deferred => await deferred.InvokeAsync(),
-                    MergeProp merge => await merge.InvokeAsync(),
-                    OnceProp once => await once.InvokeAsync(),
-#pragma warning disable CS0618
-                    LazyProp lazy => lazy.Invoke(),
-#pragma warning restore CS0618
-                    _ => value
-                };
-            }
-        }
-
-        static List<string> ParseCommaSeparated(string? header)
-        {
-            if (string.IsNullOrEmpty(header))
-                return new List<string>();
-
-            return header
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .ToList();
-        }
-
     }
 }

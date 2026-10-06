@@ -48,6 +48,7 @@ public class InertiaMiddleware
                 {
                     context.Response.StatusCode = 409;
                     context.Response.Headers["X-Inertia-Location"] = context.Request.GetEncodedUrl();
+                    context.Response.Headers["X-Inertia-Version"] = currentVersion;
                     return;
                 }
             }
@@ -60,19 +61,21 @@ public class InertiaMiddleware
             var location = context.Response.Headers.Location.ToString();
             if (!string.IsNullOrEmpty(location) && IsExternalUrl(location, context.Request))
             {
-                // External redirect: signal the client via 409 so it can handle navigation
+                // External redirect: the XHR visit cannot follow it, so the client does a full
+                // window.location visit instead (fragment or not).
                 context.Response.StatusCode = 409;
                 context.Response.Headers.Remove("Location");
+                context.Response.Headers["X-Inertia-Location"] = location;
+                return;
+            }
 
-                // URLs with a fragment use X-Inertia-Redirect; plain external use X-Inertia-Location
-                var hasFragment = Uri.TryCreate(location, UriKind.Absolute, out var uri)
-                    && !string.IsNullOrEmpty(uri.Fragment);
-
-                if (hasFragment)
-                    context.Response.Headers["X-Inertia-Redirect"] = location;
-                else
-                    context.Response.Headers["X-Inertia-Location"] = location;
-
+            // Internal redirect whose target has a fragment: the browser would drop the fragment when
+            // following the redirect, so the client makes a fresh Inertia visit to the full URL instead.
+            if (!string.IsNullOrEmpty(location) && location.Contains('#') && !inertiaContext.IsPrefetch)
+            {
+                context.Response.StatusCode = 409;
+                context.Response.Headers.Remove("Location");
+                context.Response.Headers["X-Inertia-Redirect"] = location;
                 return;
             }
         }
@@ -89,20 +92,22 @@ public class InertiaMiddleware
     static bool IsRedirectStatus(int statusCode)
         => statusCode is 301 or 302 or 303 or 307 or 308;
 
-    internal static void EnsureVaryHeader(IHeaderDictionary headers)
+    internal static void EnsureVaryHeader(IHeaderDictionary headers) => AppendVary(headers, "X-Inertia");
+
+    internal static void AppendVary(IHeaderDictionary headers, string value)
     {
         var vary = headers.Vary.ToString();
         if (string.IsNullOrWhiteSpace(vary))
         {
-            headers.Vary = "X-Inertia";
+            headers.Vary = value;
             return;
         }
 
         var values = vary
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        if (!values.Contains("X-Inertia", StringComparer.OrdinalIgnoreCase))
-            headers.Vary = $"{vary}, X-Inertia";
+        if (!values.Contains(value, StringComparer.OrdinalIgnoreCase))
+            headers.Vary = $"{vary}, {value}";
     }
 
     static bool IsExternalUrl(string location, HttpRequest request)

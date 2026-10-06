@@ -23,6 +23,9 @@ public class PrecognitiveAttribute : ActionFilterAttribute
 {
     public override void OnActionExecuting(ActionExecutingContext context)
     {
+        // Responses from a precognitive endpoint differ by the Precognition header, validation or not.
+        InertiaMiddleware.AppendVary(context.HttpContext.Response.Headers, "Precognition");
+
         var inertiaContext = context.HttpContext.RequestServices.GetRequiredService<InertiaContext>();
         if (!inertiaContext.IsPrecognition) return;
 

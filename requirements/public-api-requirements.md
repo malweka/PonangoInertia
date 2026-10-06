@@ -23,15 +23,32 @@ Compatibility APIs should remain marked obsolete while they are still supported.
 - `WithEncryptHistory(...)`
 - `WithClearHistory(...)`
 - `WithPreserveFragment(...)`
+- `WithPreserveBigIntegers(...)`
 
 ## Static factory helpers
 
 The `Inertia` static class should expose helper constructors for:
 - `Optional`
 - `Always`
-- `Defer`
+- `Defer` (with optional `rescue`)
 - `Merge`
+- `DeepMerge`
 - `Once`
+- `Scroll`
+
+Prop wrappers should be composable through fluent modifiers:
+- `DeferredProp`: `Merge`, `DeepMerge`, `Append`, `Prepend`, `MatchingOn`, `Once`, `As`, `Fresh`, `Until`, `Rescue`
+- `MergeProp`: `Append`, `Prepend`, `DeepMerge`, `MatchingOn`, `Once`, `As`, `Fresh`, `Until`
+- `OptionalProp`: `Once`, `As`, `Fresh`, `Until`
+- `OnceProp`: `As`, `Fresh`, `Until`
+
+`InertiaContext` should expose `Share(...)` and `ShareOnce(...)`.
+
+A prop value that is a delegate taking no arguments and returning a value should be evaluated lazily, whatever
+its return type.
+
+The interfaces the resolver uses to describe prop behavior (`IResolvableProp` and the other capability
+interfaces) are internal. Prop types defined outside the library are not a supported extension point.
 
 ## Controller conveniences
 
@@ -59,8 +76,11 @@ Default component derivation should support route-based naming, including area/c
 `InertiaOptions` should support:
 - `RootView`
 - `EncryptHistory`
+- `PreserveBigIntegers`
+- `WithAllErrors`
+- `ExposeSharedPropKeys`
 - `SharedData`
-- `JsonSerializerOptions`
+- `JsonSerializerOptions` (applied once; the resulting options are reused for every response)
 
 ## Location responses
 

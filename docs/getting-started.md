@@ -193,5 +193,6 @@ Your frontend should read the Inertia page object from the initial HTML response
 
 ## Next steps
 
-- Read [advanced-topics.md](./advanced-topics.md) for deferred props, partial reloads, shared data, flash messages, error bags, precognition, prefetch, and infinite scroll.
+- Read [advanced-topics.md](./advanced-topics.md) for deferred props, partial reloads, shared data, flash messages, error bags, precognition, prefetch, infinite scroll, and big integers.
+- Read [upgrading-to-3.0.md](./upgrading-to-3.0.md) if you are upgrading from 2.x.
 - Read [migration-from-v1.md](./migration-from-v1.md) if you are upgrading an older integration.

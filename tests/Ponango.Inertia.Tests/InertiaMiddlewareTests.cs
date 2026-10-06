@@ -52,7 +52,7 @@ public class InertiaMiddlewareTests
     }
 
     [Fact]
-    public async Task External_redirect_with_fragment_uses_redirect_header()
+    public async Task External_redirect_with_fragment_uses_location_header()
     {
         using var test = TestInfrastructure.CreateContext();
         var httpContext = test.HttpContext;
@@ -68,7 +68,9 @@ public class InertiaMiddlewareTests
         await middleware.InvokeAsync(httpContext);
 
         Assert.Equal(StatusCodes.Status409Conflict, httpContext.Response.StatusCode);
-        Assert.Equal("https://external.test/callback#done", httpContext.Response.Headers["X-Inertia-Redirect"].ToString());
+        // An external target can't be fetched by XHR, so the client must do a full window.location visit.
+        Assert.Equal("https://external.test/callback#done", httpContext.Response.Headers["X-Inertia-Location"].ToString());
+        Assert.False(httpContext.Response.Headers.ContainsKey("X-Inertia-Redirect"));
         Assert.False(httpContext.Response.Headers.ContainsKey("Location"));
     }
 

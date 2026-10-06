@@ -104,8 +104,9 @@ return _inertia.Render("Users/Index", new { users })
     .WithFlash("success", "User created");
 ```
 
-Flash values are merged into the response's `flash` prop and cleared after
-they are read.
+Flash values are emitted in the page object's top-level `flash` field (read them with
+`usePage().flash` or the `flash` event) and cleared after they are read. Since 3.0 they are no longer
+part of `props`; see [upgrading-to-3.0.md](./upgrading-to-3.0.md).
 
 ## Error bags and precognition
 

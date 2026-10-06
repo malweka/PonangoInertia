@@ -17,8 +17,10 @@ namespace Ponango.Inertia
             }
 
             var json = data.ToJson(serializer);
-            // Escape </script> within JSON to prevent premature tag closure
-            var safeJson = json.Replace("</script>", "<\\/script>");
+            // The protocol requires every "/" to be escaped as "\/" so no "</script>" (in any casing) can close the
+            // tag early; "<" is escaped too, as the Inertia SSR server does. Both only occur inside JSON strings, where
+            // these escapes are valid. HTML entities must not be used: browsers do not decode them in a script body.
+            var safeJson = json.Replace("/", "\\/").Replace("<", "\\u003c");
 
             return new HtmlString(
                 $"<div id=\"{appId}\"></div>\n" +

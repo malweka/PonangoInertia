@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 
 namespace Ponango.Inertia;
@@ -45,72 +44,36 @@ public class InertiaContext
     }
 
     /// <summary>
-    /// Stores a one-time flash value. It will appear under the "flash" shared prop in the
-    /// next Inertia response and be automatically cleared by TempData afterwards.
+    /// Shares a once prop: resolved the first time a page includes it, then remembered by the client and
+    /// skipped on later visits. Chain <c>As</c>, <c>Until</c> or <c>Fresh</c> on the returned prop.
+    /// </summary>
+    public OnceProp ShareOnce(string key, Func<object> callback)
+    {
+        var prop = new OnceProp(callback);
+        Share(key, prop);
+        return prop;
+    }
+
+    /// <inheritdoc cref="ShareOnce(string, Func{object})"/>
+    public OnceProp ShareOnce(string key, Func<Task<object>> callback)
+    {
+        var prop = new OnceProp(callback);
+        Share(key, prop);
+        return prop;
+    }
+
+    /// <summary>
+    /// Stores a one-time flash value. It is emitted in the top-level <c>flash</c> field of the next rendered
+    /// Inertia page (read it on the client with <c>usePage().flash</c> or the <c>flash</c> event) and then cleared.
+    /// It survives redirects until a page is rendered.
     /// </summary>
     public void Flash(string key, object value) => flash?.Flash(key, value);
 
     /// <summary>
-    /// Reads pending flash values from TempData and merges them into SharedProps["flash"].
-    /// Called internally by InertiaResult before building the page object.
+    /// Reads and removes all pending flash values. Called internally by InertiaResult when it builds the page.
     /// </summary>
-    internal void MergeFlashIntoSharedProps()
-    {
-        if (flash == null) return;
-
-        var values = flash.ReadAll();
-        if (values.Count == 0) return;
-
-        if (SharedProps.TryGetValue("flash", out var existingFlash) &&
-            TryConvertToDictionary(existingFlash, out var existingValues))
-        {
-            foreach (var entry in values)
-                existingValues[entry.Key] = entry.Value;
-
-            SharedProps["flash"] = existingValues;
-            return;
-        }
-
-        SharedProps["flash"] = new Dictionary<string, object?>(values);
-    }
-
-    static bool TryConvertToDictionary(object? value, out Dictionary<string, object?> dictionary)
-    {
-        dictionary = new Dictionary<string, object?>(StringComparer.Ordinal);
-        if (value == null)
-            return false;
-
-        if (value is IDictionary<string, object> typedDictionary)
-        {
-            foreach (var entry in typedDictionary)
-                dictionary[entry.Key] = entry.Value;
-
-            return true;
-        }
-
-        if (value is IDictionary<string, object?> nullableDictionary)
-        {
-            foreach (var entry in nullableDictionary)
-                dictionary[entry.Key] = entry.Value;
-
-            return true;
-        }
-
-        try
-        {
-            var json = JsonSerializer.Serialize(value);
-            var parsed = JsonSerializer.Deserialize<Dictionary<string, object?>>(json);
-            if (parsed == null)
-                return false;
-
-            dictionary = parsed;
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    internal IDictionary<string, object?> PullFlash()
+        => flash?.ReadAll() ?? new Dictionary<string, object?>();
 
     bool IsInertiaRequest()
     {

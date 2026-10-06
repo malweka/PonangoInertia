@@ -39,7 +39,7 @@ namespace Ponango.Inertia
             var result = new InertiaResult(component, assetVersion)
             {
                 ViewName = viewName,
-                Url = context.Request?.Path,
+                Url = context.Request is { } request ? GetPageUrl(request) : null,
                 InertiaContext = context
             };
 
@@ -68,7 +68,7 @@ namespace Ponango.Inertia
             var result = new InertiaResult(component, context.AssetVersionProvider.GetAssetVersion())
             {
                 ViewName = viewName,
-                Url = context.Request?.Path,
+                Url = context.Request is { } request ? GetPageUrl(request) : null,
                 InertiaContext = context
             };
 
@@ -82,6 +82,15 @@ namespace Ponango.Inertia
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// The page URL the client stores in its history: path base, path and query string, without scheme or host.
+        /// </summary>
+        internal static string GetPageUrl(HttpRequest request)
+        {
+            var url = $"{request.PathBase}{request.Path}{request.QueryString}";
+            return url.StartsWith('/') ? url : "/" + url;
         }
 
         static IDictionary<string, object> ToPropsDictionary<T>(T props)

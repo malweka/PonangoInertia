@@ -7,7 +7,7 @@ namespace Ponango.Inertia
     /// when explicitly requested. Deprecated in favor of <see cref="OptionalProp"/>.
     /// </summary>
     [Obsolete("Use OptionalProp instead. LazyProp will be removed in a future version.")]
-    public class LazyProp
+    public class LazyProp : IResolvableProp, IIgnoreFirstLoad
     {
         private readonly Func<object> _valueProvider;
 
@@ -20,5 +20,7 @@ namespace Ponango.Inertia
         {
             return _valueProvider();
         }
+
+        Task<object?> IResolvableProp.ResolveAsync() => Task.FromResult<object?>(Invoke());
     }
 }

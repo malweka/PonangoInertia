@@ -17,6 +17,8 @@ For implementation work, also consult:
 - `docs/getting-started.md`
 - `docs/advanced-topics.md`
 - `docs/migration-from-v1.md`
+- `docs/upgrading-to-3.0.md`
+- `docs/compatibility.md` (keep it current when adding or changing features)
 - `requirements/protocol-requirements.md`
 - `requirements/public-api-requirements.md`
 - `requirements/testing-and-docs-requirements.md`
@@ -29,27 +31,33 @@ Ponango.Inertia is a .NET 8.0 ASP.NET Core server adapter for Inertia.js with a 
 Current capabilities include:
 - v3-style initial HTML payload via `<script type="application/json" data-page data-inertia>`
 - middleware-driven protocol handling via `app.UseInertia()`
-- shared props and flash messages
-- error bags and precognition
+- shared props, once-shared props, and flash data emitted as the top-level `page.flash` field
+- error bags (optionally every message per field) and precognition
 - history flags: `encryptHistory`, `clearHistory`, `preserveFragment`
-- prop wrappers:
+- prop wrappers, composable through fluent modifiers:
   - `OptionalProp`
   - `AlwaysProp`
-  - `DeferredProp`
-  - `MergeProp`
+  - `DeferredProp` (with merge, once, and rescue)
+  - `MergeProp` (root or nested-path merging, once)
   - `OnceProp`
+  - `ScrollProp` (infinite scroll)
+- lazy delegate props (any delegate without parameters that returns a value)
+- nested prop types and dot-notation partial reloads
+- big integer markers (`preserveBigIntegers`)
 - prefetch detection
-- infinite scroll metadata via `scrollProps`
 - ergonomic APIs such as `Render(...)`, `Location(...)`, `With(...)`, and `WithFlash(...)`
 
 ## Build and Test Commands
 
+Use `-p:`-style switches: Git Bash rewrites `/p:` switches as paths and MSBuild then fails with
+`MSB1008: Only one project can be specified`. The `-` form works in every shell.
+
 ```bash
 # Build the library without package generation
-dotnet msbuild src/Ponango.Inertia/Ponango.Inertia.csproj /t:Build /p:GeneratePackageOnBuild=false /p:BuildProjectReferences=false /nr:false /v:minimal
+dotnet build src/Ponango.Inertia/Ponango.Inertia.csproj -p:GeneratePackageOnBuild=false -nr:false -v:minimal
 
 # Run the test project
-dotnet test tests/Ponango.Inertia.Tests/Ponango.Inertia.Tests.csproj /p:GeneratePackageOnBuild=false /nr:false /v:minimal
+dotnet test tests/Ponango.Inertia.Tests/Ponango.Inertia.Tests.csproj -p:GeneratePackageOnBuild=false -nr:false -v:minimal
 
 # Pack the NuGet package
 dotnet pack src/Ponango.Inertia/Ponango.Inertia.csproj -c Release
@@ -83,29 +91,34 @@ return _inertia.Inertia("Inertia", model, "Users/Index");
 
 `InertiaResult` supports:
 - `With(string key, object value)`
-- `WithFlash(string key, object value)`
+- `WithFlash(string key, object value)` and `WithFlash(IDictionary<string, object?> values)`
 - `WithErrors(ModelStateDictionary modelState, string? errorBag = null)`
 - `WithEncryptHistory(bool encrypt = true)`
 - `WithClearHistory(bool clear = true)`
 - `WithPreserveFragment(bool preserve = true)`
+- `WithPreserveBigIntegers(bool preserve = true)`
 
 ### Static factory helpers
 
 Use the `Inertia` static class to create prop wrappers:
 
 ```csharp
-Inertia.Optional(...)
+Inertia.Optional(...)                        // .Once() .As() .Fresh() .Until()
 Inertia.Always(...)
-Inertia.Defer(...)
-Inertia.Merge(...)
-Inertia.Once(...)
+Inertia.Defer(..., group, rescue)            // .Merge() .DeepMerge() .Append() .Prepend() .MatchingOn() .Once() .Rescue()
+Inertia.Merge(...)  / Inertia.DeepMerge(...) // .Append(path, matchOn) .Prepend(path) .MatchingOn() .Once()
+Inertia.Once(...)                            // .As() .Fresh() .Until()
+Inertia.Scroll(..., ScrollMetadata, wrapper) // .Defer() .MatchingOn()
 ```
+
+`InertiaContext.ShareOnce(...)` shares a once prop. A delegate prop value without parameters (`Func<T>`, `Func<Task<T>>`) is evaluated lazily.
 
 ### Controller base class
 
 `InertiaController` exposes:
 - `Render(...)`
 - `Location(...)`
+- `Redirect(...)` (303 for non-GET requests)
 - obsolete `Inertia(...)`
 - request flags:
   - `IsInertia`
@@ -124,7 +137,7 @@ Applications should:
 - `Vary: X-Inertia`
 - asset version mismatch handling
 - shared data middleware behavior
-- external redirect handling
+- external and fragment redirect handling
 
 ## Core Architecture
 
@@ -134,9 +147,10 @@ Applications should:
 
 Responsible for:
 - appending `X-Inertia` to `Vary`
-- asset version mismatch handling
+- asset version mismatch handling (`409` + `X-Inertia-Location` + `X-Inertia-Version`)
 - shared data injection from `InertiaOptions.SharedData`
-- external redirect translation to `409` + `X-Inertia-Location` or `X-Inertia-Redirect`
+- external redirect translation to `409` + `X-Inertia-Location`
+- internal redirects to a `#fragment` URL translated to `409` + `X-Inertia-Redirect` (not for prefetch)
 - `302` to `303` conversion for non-GET Inertia redirects
 
 ### InertiaResult
@@ -144,12 +158,32 @@ Responsible for:
 `src/Ponango.Inertia/InertiaResult.cs`
 
 Responsible for:
-- building the page object
-- resolving prop wrappers
+- merging shared and page props (shared first, page props win), adding the default `errors` object
+- listing shared keys in `sharedProps` on every response, partial reloads included
+- the default `url`: path base, path and query string
+- running `PropsResolver` and copying its metadata onto the page object
 - HTML vs JSON response generation
-- history/navigation flags
-- flash merge before response generation
+- history/navigation flags and the `preserveBigIntegers` flag
+- reading flash data into `page.flash` when a page is built
 - protocol fallback if middleware is missing
+
+### PropsResolver
+
+`src/Ponango.Inertia/PropsResolver.cs`
+
+A port of the reference adapter's `PropsResolver` (inertia-laravel 3.x). Responsible for:
+- partial reload filtering with dot-path matching (`only` / `except`)
+- excluding optional/deferred props and client-held once props on full visits, while collecting their metadata
+- resolving wrappers and lazy delegates, rescuing rescuable failures into `rescuedProps`
+- collecting deferred, merge, match, scroll, and once metadata
+- walking anonymous objects and string-keyed dictionaries (`PropContainers`) for nested prop types
+
+Prop behavior is described by the capability interfaces in `PropCapabilities.cs` (`IResolvableProp`,
+`IIgnoreFirstLoad`, `IDeferrableProp`, `IMergeableProp`, `IOnceableProp`, `IRescuableProp`). They are internal:
+custom prop types outside the library are not supported, so their shape can change freely. The fluent once and
+merge modifiers shared by `OptionalProp`, `DeferredProp` and `MergeProp` live in `PropModifiers.cs`
+(`OnceModifiers<TSelf>`, `MergeModifiers<TSelf>`); add a shared modifier there, not on one wrapper. When
+adapting more reference-adapter behavior, read `src/PropsResolver.php` in inertia-laravel first and follow it.
 
 ### InertiaContext
 
@@ -157,7 +191,7 @@ Responsible for:
 
 Provides:
 - request header access
-- shared props
+- shared props (`Share`, `ShareOnce`)
 - flash support
 - request flags:
   - `IsInertia`
@@ -171,39 +205,50 @@ Provides:
 Includes:
 - core page payload
 - merge metadata
-- deferred metadata
+- deferred and rescued metadata
 - once metadata
 - shared prop metadata
 - scroll metadata
 - history/navigation flags
+- `flash` and `preserveBigIntegers`
+- the serializer options, built once per `IJsonSerializerOptionBuilder` and reused (`GetSerializerOptions`);
+  the returned instance is shared, so never modify it
 
 ## Prop Wrapper Semantics
 
 ### OptionalProp
 
-- excluded from full visits
-- only resolved when explicitly requested in `X-Inertia-Partial-Data`
+- never resolved on a full visit
+- on a partial reload, resolved when it passes the `only`/`except` filters
 
 ### AlwaysProp
 
-- always emitted, including partial reloads
+- always emitted, including partial reloads, ignoring `only`/`except`
 
 ### DeferredProp
 
-- excluded from the initial full visit
-- listed under `deferredProps`
-- only resolved when explicitly requested later
+- excluded from the initial full visit and listed under `deferredProps` (unless it is a once prop the client holds)
+- resolved by a later partial reload that selects it
+- with rescue, a failing callback is logged, omitted, and listed in `rescuedProps`
+- can also merge and be remembered (once)
 
 ### OnceProp
 
-- emitted once unless excluded by `X-Inertia-Except-Once-Props`
+- skipped (callback not run) on Inertia full visits when its key is in `X-Inertia-Except-Once-Props`, but its
+  `onceProps` entry is still emitted
+- always resolved on partial reloads that select it
+- `expiresAt` is in Unix milliseconds; `As(key)` shares a cache key across pages; `Fresh()` forces a new value
 
 ### MergeProp
 
-- emits merge metadata
-- supports append, prepend, deep merge
-- supports `matchOn`
-- supports infinite scroll metadata via `WithScroll(...)`
+- emits merge metadata (append, prepend, deep merge) at the root or at nested paths (`prop.path`)
+- supports match fields (`matchPropsOn`)
+- legacy `WithScroll(...)` (obsolete) adds scroll metadata and follows the merge-intent header
+
+### ScrollProp
+
+- merges the array under its wrapper key (`prop.data`), prepending when the merge-intent header says `prepend`
+- emits `scrollProps` with `reset`; when deferred, emits no `scrollProps` on the full visit
 
 ## Request/Protocol Notes
 
@@ -222,10 +267,15 @@ Supported request headers include:
 - `Precognition-Validate-Only`
 
 Important behavior:
-- partial reloads preserve `errors`
-- `OptionalProp`, `LazyProp`, and `DeferredProp` do not resolve unless explicitly requested
-- `X-Inertia-Reset` suppresses merge metadata for matching props
-- `X-Inertia-Infinite-Scroll-Merge-Intent` can override append/prepend merge mode
+- `props.errors` is always present (`{}` by default) and survives partial reloads
+- with both `only` and `except`, `only` narrows first and `except` is then removed
+- `OptionalProp`, `LazyProp`, and `DeferredProp` never resolve on full visits
+- `X-Inertia-Reset` suppresses merge metadata for matching props and sets `scrollProps[*].reset`
+- `X-Inertia-Infinite-Scroll-Merge-Intent` only affects scroll props
+- precognitive actions add `Precognition` to `Vary`
+- `sharedProps` lists every shared key a page prop does not override, on partial reloads too
+- `url` is the path base, path and query string unless `InertiaResult.Url` is set
+- the initial-page script payload escapes `/` as `\/` and `<` as `\u003c`
 
 ## View Integration
 
@@ -242,7 +292,7 @@ This emits:
 
 ```html
 <div id="app"></div>
-<script type="application/json" data-page data-inertia>{...}</script>
+<script type="application/json" data-page="app" data-inertia>{...}</script>
 ```
 
 ## Tests
@@ -252,13 +302,18 @@ There is an active test project at:
 - `tests/Ponango.Inertia.Tests/`
 
 Current coverage includes:
-- middleware behavior
-- prop wrapper resolution
-- flash merging
-- external redirects
+- middleware behavior and protocol compliance (`ProtocolComplianceTests`)
+- prop resolution and metadata (`PropsResolverTests`, `NestedPropsTests`)
+- infinite scroll (`ScrollPropTests`)
+- flash data at page level (`FlashTests`)
+- big integers (`BigIntegerTests`)
+- options and conveniences (`OptionsAndConveniencesTests`)
+- external and fragment redirects
 - prefetch detection
 - precognition behavior
 - public API ergonomics
+
+Shared test helpers live in `TestInfrastructure.cs` and `TestHelpers.cs`.
 
 When changing protocol behavior, add or update tests in `tests/Ponango.Inertia.Tests/` in the same change.
 
@@ -267,4 +322,4 @@ When changing protocol behavior, add or update tests in `tests/Ponango.Inertia.T
 - Prefer `Render(...)` in new examples and code.
 - Keep compatibility APIs unless the change explicitly intends a breaking removal.
 - Do not regress middleware-backed behavior for apps that already call `UseInertia()`.
-- If changing request/response semantics, update `README.md` and the docs under `docs/`.
+- If changing request/response semantics, update `README.md`, the docs under `docs/`, and `requirements/`.

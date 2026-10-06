@@ -17,6 +17,26 @@ public class InertiaOptions
     public bool EncryptHistory { get; set; } = false;
 
     /// <summary>
+    /// When true, integers outside JavaScript's safe range (±(2^53 − 1)) in props and flash data are sent as
+    /// <c>{"$bigint": "..."}</c> markers that the client turns into native <c>BigInt</c> values, so they are not
+    /// rounded. Requires Inertia client adapters 3.8.0 or later. Can be overridden per response via
+    /// InertiaResult.WithPreserveBigIntegers().
+    /// </summary>
+    public bool PreserveBigIntegers { get; set; } = false;
+
+    /// <summary>
+    /// When true, validation errors added with InertiaResult.WithErrors() carry every message for each field
+    /// (<c>string[]</c>) instead of only the first one (<c>string</c>).
+    /// </summary>
+    public bool WithAllErrors { get; set; } = false;
+
+    /// <summary>
+    /// When true (the default), the page object lists shared prop keys in <c>sharedProps</c>, which the client uses
+    /// to carry shared props over during instant visits. Set to false to omit the list; values are still sent.
+    /// </summary>
+    public bool ExposeSharedPropKeys { get; set; } = true;
+
+    /// <summary>
     /// Optional delegate for injecting shared data into every Inertia response.
     /// Runs once per request, before the controller action executes.
     /// </summary>

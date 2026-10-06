@@ -26,7 +26,7 @@ public class ApiErgonomicsTests
 
         Assert.True(props.TryGetProperty("users", out _));
         Assert.True(props.TryGetProperty("stats", out _));
-        Assert.Equal("created", props.GetProperty("flash").GetProperty("success").GetString());
+        Assert.Equal("created", document.RootElement.GetProperty("flash").GetProperty("success").GetString());
     }
 
     [Fact]

@@ -38,8 +38,16 @@ public class PlanCoverageTests
         Assert.Contains("<script type=\"application/json\"", html);
         Assert.Contains("data-page", html);
         Assert.Contains("data-inertia", html);
-        Assert.Contains("<\\/script>", html);
         Assert.DoesNotContain("</script><p>bad</p>", html);
+
+        // Every "/" is escaped as "\/" (and "<" as <), so nothing in the payload can close the tag.
+        var body = TestHelpers.ExtractScriptBody(html);
+        Assert.DoesNotContain("</", body);
+        Assert.Contains("\\/users", body);
+
+        using var page = JsonDocument.Parse(body);
+        Assert.Equal("/users", page.RootElement.GetProperty("url").GetString());
+        Assert.Equal("</script><p>bad</p>", page.RootElement.GetProperty("props").GetProperty("unsafeValue").GetString());
     }
 
     [Fact]
@@ -71,6 +79,7 @@ public class PlanCoverageTests
 
         Assert.Equal(StatusCodes.Status409Conflict, httpContext.Response.StatusCode);
         Assert.Equal("https://app.test/users", httpContext.Response.Headers["X-Inertia-Location"].ToString());
+        Assert.Equal("test-version", httpContext.Response.Headers["X-Inertia-Version"].ToString());
     }
 
     [Fact]
@@ -282,8 +291,9 @@ public class PlanCoverageTests
         await secondResult.ExecuteResultAsync(TestInfrastructure.CreateActionContext(httpContext));
 
         using var second = await TestInfrastructure.ReadJsonAsync(httpContext.Response);
+        // The value is skipped, but the onceProps entry stays so the client keeps remembering it.
         Assert.False(second.RootElement.GetProperty("props").TryGetProperty("plans", out _));
-        Assert.False(second.RootElement.TryGetProperty("onceProps", out _));
+        Assert.True(second.RootElement.GetProperty("onceProps").TryGetProperty("plans", out _));
         Assert.Equal(1, calls);
     }
 
@@ -312,7 +322,7 @@ public class PlanCoverageTests
     }
 
     [Fact]
-    public async Task Shared_props_metadata_reflects_final_emitted_shared_keys()
+    public async Task Shared_props_metadata_lists_shared_keys_even_when_a_partial_reload_skips_them()
     {
         using var test = TestInfrastructure.CreateContext();
         var httpContext = test.HttpContext;
@@ -336,9 +346,10 @@ public class PlanCoverageTests
         Assert.True(props.TryGetProperty("auth", out _));
         Assert.True(props.TryGetProperty("users", out _));
         Assert.False(props.TryGetProperty("nav", out _));
+        // "nav" stays listed although this response skips its value; "users" is overridden by a page prop.
         Assert.Contains("auth", sharedProps);
+        Assert.Contains("nav", sharedProps);
         Assert.DoesNotContain("users", sharedProps);
-        Assert.DoesNotContain("nav", sharedProps);
     }
 
     [Fact]
@@ -471,14 +482,13 @@ public class PlanCoverageTests
     }
 
     [Fact]
-    public async Task Flash_values_are_emitted_once_and_merge_with_object_shaped_flash()
+    public async Task Flash_values_are_emitted_once_at_page_level()
     {
         using var test = TestInfrastructure.CreateContext();
         var httpContext = test.HttpContext;
         httpContext.Request.Headers["X-Inertia"] = "true";
         var inertia = test.GetRequiredService<InertiaContext>();
 
-        inertia.Share("flash", new { existing = "keep" });
         inertia.Flash("success", "created");
 
         await inertia.Render("Users/Index", new { })
@@ -486,9 +496,8 @@ public class PlanCoverageTests
 
         using (var first = await TestInfrastructure.ReadJsonAsync(httpContext.Response))
         {
-            var flash = first.RootElement.GetProperty("props").GetProperty("flash");
-            Assert.Equal("keep", flash.GetProperty("existing").GetString());
-            Assert.Equal("created", flash.GetProperty("success").GetString());
+            Assert.Equal("created", first.RootElement.GetProperty("flash").GetProperty("success").GetString());
+            Assert.False(first.RootElement.GetProperty("props").TryGetProperty("flash", out _));
         }
 
         ResetResponse(httpContext);
@@ -498,7 +507,7 @@ public class PlanCoverageTests
             .ExecuteResultAsync(TestInfrastructure.CreateActionContext(httpContext));
 
         using var second = await TestInfrastructure.ReadJsonAsync(httpContext.Response);
-        Assert.False(second.RootElement.GetProperty("props").TryGetProperty("flash", out _));
+        Assert.False(second.RootElement.TryGetProperty("flash", out _));
     }
 
     [Fact]

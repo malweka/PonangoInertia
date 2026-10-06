@@ -33,7 +33,7 @@
 		<Product>Ponango</Product>
 		<Authors>Emmanuel Hameyie</Authors>
 		<Copyright>Copyright (C) 2026 Emmanuel Hameyie</Copyright>
-		<Description>A server-side adapter for Inertia.js on ASP.NET Core. Build single-page applications with classic server-side routing and controllers, rendering with React, Vue or Svelte on the client. Supports the Inertia v3 protocol: deferred, merged, shared and once props, history encryption, and partial reloads.</Description>
+		<Description>A server-side adapter for Inertia.js on ASP.NET Core. Build single-page applications with classic server-side routing and controllers, rendering with React, Vue or Svelte on the client. Supports the Inertia v3 protocol: deferred, merged, shared, once and infinite-scroll props that combine freely, rescued deferred props, nested props with dot-notation partial reloads, page-level flash data, big integers as BigInt, history encryption, and precognition.</Description>
 		<PackageTags>inertia;inertiajs;aspnetcore;mvc;spa;react;vue;svelte;server-driven</PackageTags>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/malweka/PonangoInertia</PackageProjectUrl>

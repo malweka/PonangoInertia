@@ -9,9 +9,30 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 - Version-mismatch `409` responses now echo the current asset version in `X-Inertia-Version`.
 - Precognitive actions add `Precognition` to the `Vary` header on every response.
 - `InertiaResult.WithFlash(IDictionary<string, object?>)` flashes several values at once.
+- Composable prop modifiers, following the reference adapter:
+  - deferred props can merge (`Merge`, `DeepMerge`, `Append`, `Prepend`, `MatchingOn`) and be remembered (`Once`);
+  - merge and optional props can be remembered (`Once`);
+  - once options `As(key)` (custom key shared across pages), `Fresh()`, and `Until(TimeSpan | DateTimeOffset)`.
+- Rescued deferred props: `Inertia.Defer(..., rescue: true)` or `.Rescue()` omits a failing prop, logs the
+  exception, and lists it in the new `rescuedProps` page field.
+- Merging at nested paths: `Inertia.Merge(...).Append("data", matchOn: "id")` emits `mergeProps: ["users.data"]`,
+  plus `Prepend(path)` and dictionary overloads for several paths.
+- `Inertia.DeepMerge(...)` factory and `InertiaContext.ShareOnce(...)`.
+- Public capability interfaces (`IResolvableProp`, `IIgnoreFirstLoad`, `IDeferrableProp`, `IMergeableProp`,
+  `IOnceableProp`, `IRescuableProp`) describing how the resolver treats a prop.
+
+### Changed
+
+- `X-Inertia-Infinite-Scroll-Merge-Intent` now only affects scroll props (`MergeProp.WithScroll(...)`), as in the
+  reference adapter. Plain merge props keep their configured append/prepend mode.
+- Shared props are emitted before page props in `props` (page props still win on key conflicts).
 
 ### Fixed
 
+- A once prop skipped because of `X-Inertia-Except-Once-Props` keeps its `onceProps` entry, so the client keeps
+  remembering it. It used to disappear, so the client forgot it and fetched it again on the next visit.
+- Partial reloads always resolve a requested once prop, ignoring `X-Inertia-Except-Once-Props`, so
+  `router.reload({ only: [...] })` can refresh it.
 - Once-prop `expiresAt` is now a Unix timestamp in milliseconds, as the client expects. It was emitted in
   seconds, so every once prop with an expiry looked expired and was fetched again on every visit.
 - Partial reloads that send both `X-Inertia-Partial-Data` and `X-Inertia-Partial-Except` now remove the
@@ -21,6 +42,8 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 
 ### Breaking changes
 
+- `Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter. Source
+  compatible, but code compiled against 2.x must be recompiled.
 - Flash data is now emitted in the page object's top-level `flash` field, as Inertia v3 expects, instead of
   `props.flash`. Read it with `usePage().flash` or the `flash` event; the client no longer stores it in history,
   so it does not reappear on Back. A prop you share as `flash` is now an ordinary prop and is not merged with
@@ -104,5 +127,7 @@ First release published to nuget.org.
 
 ### Breaking changes
 
+- `Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter. Source
+  compatible, but code compiled against 2.x must be recompiled.
 - applications should add `app.UseInertia()` to the middleware pipeline
 - the initial HTML response uses a script-tag page payload instead of the old `data-page` attribute format

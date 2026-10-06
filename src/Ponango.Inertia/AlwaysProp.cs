@@ -3,9 +3,9 @@ namespace Ponango.Inertia;
 /// <summary>
 /// A prop that is always included in responses, even during partial reloads
 /// when it is not explicitly requested. Use this for data that must always
-/// be fresh on every response (e.g., auth state, flash messages).
+/// be fresh on every response (e.g., auth state).
 /// </summary>
-public class AlwaysProp
+public class AlwaysProp : IResolvableProp
 {
     private readonly Func<Task<object>> _callback;
 
@@ -24,4 +24,6 @@ public class AlwaysProp
     public Task<object> InvokeAsync() => _callback();
 
     public object Invoke() => _callback().GetAwaiter().GetResult();
+
+    async Task<object?> IResolvableProp.ResolveAsync() => await _callback();
 }

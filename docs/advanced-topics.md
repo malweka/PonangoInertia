@@ -105,9 +105,18 @@ If the client sends `X-Inertia-Error-Bag`, that bag is used automatically unless
 
 Use the `Inertia` static helper to construct prop wrappers.
 
+| Wrapper | Full visit | Partial reload | Metadata |
+|---|---|---|---|
+| plain value | sent | sent when it passes `only`/`except` | none |
+| `Inertia.Always(...)` | sent | always sent, ignores `only`/`except` | none |
+| `Inertia.Optional(...)` | not resolved | resolved when it passes `only`/`except` | none |
+| `Inertia.Defer(...)` | not resolved, announced | resolved when it passes `only`/`except` | `deferredProps`, `rescuedProps` |
+| `Inertia.Merge(...)` | sent | sent when requested | `mergeProps` / `prependProps` / `deepMergeProps`, `matchPropsOn` |
+| `Inertia.Once(...)` | sent unless the client already has it | sent when requested (`X-Inertia-Except-Once-Props` ignored) | `onceProps` |
+
 ### Optional props
 
-Only returned when explicitly requested in `X-Inertia-Partial-Data`.
+Never resolved on a full visit; only returned when a partial reload selects them.
 
 ```csharp
 result.With("analytics", Inertia.Optional(() => _analytics.GetSummary()));
@@ -123,27 +132,91 @@ result.With("auth", Inertia.Always(() => GetAuthPayload()));
 
 ### Deferred props
 
-Excluded from the initial full visit and exposed via `deferredProps`.
+Excluded from the initial full visit and announced in `deferredProps`, grouped so props in the same group are
+fetched in one follow-up request.
 
 ```csharp
 result.With("report", Inertia.Defer(() => _reports.Build(), group: "dashboard"));
 ```
 
+#### Rescuing failures
+
+By default an exception thrown while resolving a deferred prop fails the response. With `rescue: true` (or
+`.Rescue()`) the exception is logged through `ILogger` (category `Ponango.Inertia`), the prop is omitted (not
+sent as `null`), and its key is listed in `rescuedProps`, so the client can render the `rescue` slot of its
+`<Deferred>` component:
+
+```csharp
+result.With("permissions", Inertia.Defer(() => _permissions.All(), rescue: true));
+```
+
+```json
+{ "component": "Users/Index", "props": { "errors": {} }, "url": "/users", "version": "…", "rescuedProps": ["permissions"] }
+```
+
 ### Once props
 
-Resolved once and skipped when the client sends `X-Inertia-Except-Once-Props`.
+Resolved once and remembered by the client. On later visits the client sends the key in
+`X-Inertia-Except-Once-Props`; the server skips the callback but keeps the `onceProps` entry so the client keeps
+the remembered value. A partial reload that requests the prop always resolves it, which is how the client
+refreshes it (`router.reload({ only: ['plans'] })`).
 
 ```csharp
 result.With("plans", Inertia.Once(() => _billing.GetPlans()));
+
+// Expire after a lifetime or at a point in time (expiresAt is sent in Unix milliseconds)
+result.With("rates", Inertia.Once(() => _rates.All()).Until(TimeSpan.FromDays(1)));
+
+// Force a fresh value even if the client has one
+result.With("plans", Inertia.Once(() => _billing.GetPlans()).Fresh(plansChanged));
+
+// Share one cached value across pages that use different prop names
+result.With("memberRoles", Inertia.Once(() => _roles.All()).As("roles"));
+```
+
+Share once props for every page with `ShareOnce`:
+
+```csharp
+_inertia.ShareOnce("countries", () => _countries.All()).Until(TimeSpan.FromDays(1));
 ```
 
 ### Merge props
 
-Used for infinite scroll and append/prepend merge semantics.
+The client merges a merge prop with the data it already has on partial reloads, instead of replacing it. Full
+visits always replace the value.
 
 ```csharp
-result.With("posts", Inertia.Merge(() => page.Items, MergeMode.Append));
+// Append (default), prepend, or deep merge the whole value
+result.With("posts", Inertia.Merge(() => page.Items));
+result.With("notifications", Inertia.Merge(() => latest, MergeMode.Prepend));
+result.With("chat", Inertia.DeepMerge(() => chatData).MatchingOn("messages.id"));
+
+// Merge only nested arrays and replace the rest of the value
+result.With("users", Inertia.Merge(() => usersPage).Append("data", matchOn: "id"));   // mergeProps: ["users.data"]
+result.With("forum", Inertia.Merge(() => forum).Append("posts").Prepend("announcements"));
+result.With("dashboard", Inertia.Merge(() => dashboard).Append(new Dictionary<string, string?>
+{
+    ["users.data"] = "id",
+    ["messages"] = "uuid",
+}));
 ```
+
+`MatchingOn(...)` (or `matchOn:`) tells the client which field identifies an item, so existing items are updated
+in place instead of duplicated. Props listed in `X-Inertia-Reset` are returned without merge metadata, so the
+client replaces them.
+
+### Combining prop types
+
+Modifiers can be chained to combine behaviors:
+
+```csharp
+result.With("permissions", Inertia.Defer(() => _permissions.All()).Once());       // deferred, then remembered
+result.With("results", Inertia.Defer(() => _search.Page(page)).DeepMerge());      // deferred, then merged
+result.With("activity", Inertia.Merge(() => _activity.Recent()).Once());          // merged and remembered
+result.With("categories", Inertia.Optional(() => _categories.All()).Once());      // optional and remembered
+```
+
+A deferred prop that the client already remembers is not announced in `deferredProps` again.
 
 ## Partial reloads
 

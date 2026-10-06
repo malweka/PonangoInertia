@@ -44,6 +44,25 @@ public class InertiaContext
     }
 
     /// <summary>
+    /// Shares a once prop: resolved the first time a page includes it, then remembered by the client and
+    /// skipped on later visits. Chain <c>As</c>, <c>Until</c> or <c>Fresh</c> on the returned prop.
+    /// </summary>
+    public OnceProp ShareOnce(string key, Func<object> callback)
+    {
+        var prop = new OnceProp(callback);
+        Share(key, prop);
+        return prop;
+    }
+
+    /// <inheritdoc cref="ShareOnce(string, Func{object})"/>
+    public OnceProp ShareOnce(string key, Func<Task<object>> callback)
+    {
+        var prop = new OnceProp(callback);
+        Share(key, prop);
+        return prop;
+    }
+
+    /// <summary>
     /// Stores a one-time flash value. It is emitted in the top-level <c>flash</c> field of the next rendered
     /// Inertia page (read it on the client with <c>usePage().flash</c> or the <c>flash</c> event) and then cleared.
     /// It survives redirects until a page is rendered.

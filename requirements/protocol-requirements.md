@@ -22,6 +22,7 @@ Optional page object fields must be emitted only when applicable:
 - `matchPropsOn`
 - `scrollProps`
 - `deferredProps`
+- `rescuedProps`
 - `sharedProps`
 - `onceProps`
 - `flash` (only when flash data exists; never inside `props`)
@@ -98,17 +99,24 @@ Rules:
 
 ### DeferredProp
 - omitted from the initial full visit
-- represented in `deferredProps`
-- emitted when explicitly requested later
+- represented in `deferredProps` (unless it is a once prop the client already remembers)
+- emitted when selected by a later partial reload
+- with rescue enabled, a failing callback omits the prop, logs the exception, and lists the key in `rescuedProps`
+- may be combined with merge behavior and once behavior
 
 ### OnceProp
-- omitted when listed in `X-Inertia-Except-Once-Props`
+- on Inertia full visits, skipped (callback not run) when its key (custom `As` key or prop name) is listed in
+  `X-Inertia-Except-Once-Props`, while its `onceProps` entry is still emitted
+- always resolved on partial reloads that select it (`X-Inertia-Except-Once-Props` is ignored there)
+- `Fresh()` forces a new value; `expiresAt` is a Unix timestamp in milliseconds or `null`
+- once behavior may also be applied to optional, deferred, and merge props
 
 ### MergeProp
-- contributes merge metadata
-- supports append, prepend, and deep merge
-- supports optional `matchOn`
-- supports scroll metadata
+- contributes merge metadata (not for props listed in `X-Inertia-Reset`, nor for props excluded by a partial reload)
+- supports append, prepend, and deep merge, at the root or at nested paths (`prop.path` labels)
+- supports `matchOn` fields (`matchPropsOn` entries `prop.path.field`)
+- supports legacy scroll metadata via `WithScroll(...)`
+- `X-Inertia-Infinite-Scroll-Merge-Intent` only affects scroll props
 
 ## Request flags
 

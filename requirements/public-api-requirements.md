@@ -29,9 +29,18 @@ Compatibility APIs should remain marked obsolete while they are still supported.
 The `Inertia` static class should expose helper constructors for:
 - `Optional`
 - `Always`
-- `Defer`
+- `Defer` (with optional `rescue`)
 - `Merge`
+- `DeepMerge`
 - `Once`
+
+Prop wrappers should be composable through fluent modifiers:
+- `DeferredProp`: `Merge`, `DeepMerge`, `Append`, `Prepend`, `MatchingOn`, `Once`, `As`, `Fresh`, `Until`, `Rescue`
+- `MergeProp`: `Append`, `Prepend`, `DeepMerge`, `MatchingOn`, `Once`, `As`, `Fresh`, `Until`
+- `OptionalProp`: `Once`, `As`, `Fresh`, `Until`
+- `OnceProp`: `As`, `Fresh`, `Until`
+
+`InertiaContext` should expose `Share(...)` and `ShareOnce(...)`.
 
 ## Controller conveniences
 

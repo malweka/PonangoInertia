@@ -291,8 +291,9 @@ public class PlanCoverageTests
         await secondResult.ExecuteResultAsync(TestInfrastructure.CreateActionContext(httpContext));
 
         using var second = await TestInfrastructure.ReadJsonAsync(httpContext.Response);
+        // The value is skipped, but the onceProps entry stays so the client keeps remembering it.
         Assert.False(second.RootElement.GetProperty("props").TryGetProperty("plans", out _));
-        Assert.False(second.RootElement.TryGetProperty("onceProps", out _));
+        Assert.True(second.RootElement.GetProperty("onceProps").TryGetProperty("plans", out _));
         Assert.Equal(1, calls);
     }
 

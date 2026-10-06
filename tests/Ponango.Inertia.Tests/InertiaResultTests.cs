@@ -123,7 +123,7 @@ public class InertiaResultTests
     }
 
     [Fact]
-    public async Task Merge_intent_header_can_switch_append_to_prepend()
+    public async Task Merge_intent_header_switches_scroll_merge_props_but_not_plain_merge_props()
     {
         using var test = TestInfrastructure.CreateContext();
         var httpContext = test.HttpContext;
@@ -136,15 +136,16 @@ public class InertiaResultTests
         var inertia = test.GetRequiredService<InertiaContext>();
         var result = inertia.Inertia("Inertia", new { }, "Posts/Index");
         result.Url = "/posts";
-        result.Props["posts"] = new MergeProp(() => new[] { "newest" }, MergeMode.Append);
+        httpContext.Request.Headers["X-Inertia-Partial-Data"] = "posts,feed";
+        result.Props["posts"] = new MergeProp(() => new[] { "newest" }, MergeMode.Append).WithScroll(2, 1, 3);
+        result.Props["feed"] = new MergeProp(() => new[] { "item" }, MergeMode.Append);
 
         await result.ExecuteResultAsync(TestInfrastructure.CreateActionContext(httpContext));
 
+        // The infinite-scroll intent header only applies to scroll props, as in the reference adapter.
         using var document = await TestInfrastructure.ReadJsonAsync(httpContext.Response);
-        Assert.False(document.RootElement.TryGetProperty("mergeProps", out _));
-        Assert.Contains(
-            document.RootElement.GetProperty("prependProps").EnumerateArray().Select(x => x.GetString()),
-            value => value == "posts");
+        Assert.Equal(new[] { "posts" }, TestHelpers.Strings(document.RootElement.GetProperty("prependProps")));
+        Assert.Equal(new[] { "feed" }, TestHelpers.Strings(document.RootElement.GetProperty("mergeProps")));
     }
 
     [Fact]

@@ -43,6 +43,10 @@ namespace Ponango.Inertia
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public Dictionary<string, List<string>>? DeferredProps { get; set; }
 
+        // Rescued deferred props (v3 - keys whose callbacks failed and were omitted)
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? RescuedProps { get; set; }
+
         // Shared props (v2/v3 - top-level prop keys registered via Share())
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<string>? SharedProps { get; set; }

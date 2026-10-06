@@ -200,11 +200,13 @@ public bool PersistValidationErrorsOnRedirect { get; set; } = true;
    non-GET requests that redirect with an invalid `ModelState`. It is a behavior change, so it needs a changelog
    entry: under `### Changed` in 3.0.0 while 3.0.0 is still unreleased (it is, as of the re-check), else a 3.1.0
    entry that names the option for opting out.
-2. **Prefetch requests.** A prefetch GET that lands between the redirect and the real visit would consume the
-   stored errors (and flash) and cache a page containing them. Today `BuildPageModelAsync` pulls flash on prefetch
-   requests too. Recommended: don't pull errors or flash on prefetch requests (`InertiaContext.IsPrefetch`). This
-   also changes flash behavior, so add a flash test. Check the current inertia-laravel behavior first: search
-   `src/Response.php` and `src/Middleware.php` for `prefetch`, and match it if it differs.
+2. **Prefetch requests: decided, no special handling.** Pull stored errors on prefetch requests exactly as on
+   other requests, and leave flash as it is (`BuildPageModelAsync` already pulls flash on prefetch requests).
+   Checked on 2026-10-06 against inertia-laravel 3.x (tag v3.5.1): `Response::resolveFlashData` calls
+   `Inertia::pullFlashed()` for every response, and validation errors live in the session flash, which ages out
+   after the next request of any kind. The only prefetch checks in `src/Middleware.php` skip the `#fragment`
+   redirect 409 (Ponango already does the same) and skip storing the previous URL. The race is also unlikely in
+   practice: the client follows the redirect within the same visit, so no prefetch can land in between.
 3. **Include `Back()`?** Recommended yes. It's small and makes the documented flow natural.
 
 ## 6. Tests (new file `tests/Ponango.Inertia.Tests/ValidationErrorRedirectTests.cs`)
@@ -236,13 +238,12 @@ Simulate "next request" the same way `FlashTests` does (same `HttpContext` + `Te
     without it).
 15. `Stored_errors_survive_partial_reload_filtering`: a partial reload with `only` that doesn't name `errors` still
     gets them.
-16. `Prefetch_request_does_not_consume_errors_or_flash` (if decision 2 is accepted).
-17. `Back_redirects_to_same_host_referer_else_fallback`: an absolute same-host referer redirects to its path and
+16. `Back_redirects_to_same_host_referer_else_fallback`: an absolute same-host referer redirects to its path and
     query; an external referer and a missing referer use the fallback. `Back` from a PUT returns 303 (from
     `InertiaRedirectResult` itself, no middleware needed).
-18. `Filter_is_registered_by_AddInertia`: `IOptions<MvcOptions>` from the test container lists the filter.
-19. Regression: everything in `PlanCoverageTests.With_errors_supports_flat_explicit_bag_and_header_bag_shapes`,
-    `OptionsAndConveniencesTests` and `FlashTests` passes unchanged (except the prefetch flash change, if accepted).
+17. `Filter_is_registered_by_AddInertia`: `IOptions<MvcOptions>` from the test container lists the filter.
+18. Regression: everything in `PlanCoverageTests.With_errors_supports_flat_explicit_bag_and_header_bag_shapes`,
+    `OptionsAndConveniencesTests` and `FlashTests` passes unchanged.
 
 ## 7. Docs to update in the same change
 

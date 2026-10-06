@@ -294,25 +294,65 @@ Prefetch requests otherwise use the same response pipeline as normal Inertia req
 
 ## Infinite scroll
 
-For infinite scroll, combine `MergeProp` with `WithScroll(...)`:
+Use `Inertia.Scroll(...)` for props rendered by the client's `<InfiniteScroll>` component. The prop value is
+an object holding the page's items in a wrapper key (`data` by default) plus anything else you want to send:
 
 ```csharp
-return _inertia.Render("Posts/Index", new { })
-    .With("posts", Inertia.Merge(() => page.Items, MergeMode.Append)
-        .WithScroll(
-            currentPage: page.CurrentPage,
-            previousPage: page.PreviousPage,
-            nextPage: page.NextPage,
-            pageName: "page"));
+var page = await _posts.GetPageAsync(pageNumber, pageSize: 20);
+
+return _inertia.Render("Posts/Index", new
+{
+    posts = Inertia.Scroll(
+        () => new { data = page.Items, total = page.Total },
+        ScrollMetadata.ForPage(page.CurrentPage, page.PreviousPage, page.NextPage))
+});
 ```
 
-This emits:
+This emits the items' merge label and the pagination state:
 
-- `mergeProps` or `prependProps`
-- `scrollProps`
-- optional `matchPropsOn` if `matchOn` was configured
+```json
+{
+  "props": { "errors": {}, "posts": { "data": [ ... ], "total": 120 } },
+  "mergeProps": ["posts.data"],
+  "scrollProps": { "posts": { "pageName": "page", "previousPage": null, "nextPage": 2, "currentPage": 1, "reset": false } }
+}
+```
 
-The client may also send `X-Inertia-Infinite-Scroll-Merge-Intent` with `append` or `prepend` to override append/prepend behavior.
+Behavior:
+
+- Items under the wrapper are appended. When the client loads earlier pages it sends
+  `X-Inertia-Infinite-Scroll-Merge-Intent: prepend`, and they are prepended instead (`prependProps`).
+- When the client resets the list (for example after a filter change, `router.reload({ reset: ['posts'] })`), the
+  prop is returned without a merge label and `scrollProps.posts.reset` is `true`.
+- `MatchingOn("id")` updates existing items in place (`matchPropsOn: ["posts.data.id"]`).
+- `wrapper: "items"` changes the wrapper key (`posts.items`).
+
+Cursor pagination uses string cursors:
+
+```csharp
+posts = Inertia.Scroll(() => new { data = slice.Items },
+    ScrollMetadata.ForCursor(slice.Cursor, slice.PreviousCursor, slice.NextCursor, cursorName: "cursor"))
+```
+
+When the metadata depends on the loaded value, pass a callback. It receives the resolved value, and the value
+callback runs only once:
+
+```csharp
+users = Inertia.Scroll(() => _users.Page(pageNumber),
+    value => { var p = (UserPage)value; return ScrollMetadata.ForPage(p.Page, p.Previous, p.Next, pageName: "users"); })
+```
+
+Use a distinct `pageName` for each scroll container on the same page (for example `users` and `orders`) so
+their query string parameters don't collide.
+
+`.Defer(group)` loads the prop in a follow-up request: the full visit announces it in `deferredProps` and emits
+its merge label, but no `scrollProps` until it is loaded.
+
+### Legacy `MergeProp.WithScroll(...)`
+
+`Inertia.Merge(...).WithScroll(...)` still works but is obsolete. It merges the whole prop value at the root
+(`mergeProps: ["posts"]`), only supports page numbers, and its `scrollProps` entry now also includes `reset` and
+explicit `null` page values. Move to `Inertia.Scroll(...)`, wrapping the items in a `data` key.
 
 ## External redirects
 

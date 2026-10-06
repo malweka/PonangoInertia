@@ -33,6 +33,7 @@ The `Inertia` static class should expose helper constructors for:
 - `Merge`
 - `DeepMerge`
 - `Once`
+- `Scroll`
 
 Prop wrappers should be composable through fluent modifiers:
 - `DeferredProp`: `Merge`, `DeepMerge`, `Append`, `Prepend`, `MatchingOn`, `Once`, `As`, `Fresh`, `Until`, `Rescue`

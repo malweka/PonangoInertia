@@ -18,6 +18,9 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 - Merging at nested paths: `Inertia.Merge(...).Append("data", matchOn: "id")` emits `mergeProps: ["users.data"]`,
   plus `Prepend(path)` and dictionary overloads for several paths.
 - `Inertia.DeepMerge(...)` factory and `InertiaContext.ShareOnce(...)`.
+- `Inertia.Scroll(...)` / `ScrollProp` for infinite scroll, matching `Inertia::scroll()`: merges the array under a
+  wrapper key (`mergeProps: ["posts.data"]`), supports page numbers and cursors (`ScrollMetadata.ForPage`,
+  `ScrollMetadata.ForCursor`), `MatchingOn`, and `.Defer()`.
 - Public capability interfaces (`IResolvableProp`, `IIgnoreFirstLoad`, `IDeferrableProp`, `IMergeableProp`,
   `IOnceableProp`, `IRescuableProp`) describing how the resolver treats a prop.
 
@@ -25,6 +28,8 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 
 - `X-Inertia-Infinite-Scroll-Merge-Intent` now only affects scroll props (`MergeProp.WithScroll(...)`), as in the
   reference adapter. Plain merge props keep their configured append/prepend mode.
+- `MergeProp.WithScroll(...)` is obsolete in favor of `Inertia.Scroll(...)`. Its `scrollProps` entry now includes
+  `reset` (`true` when the prop is reset) and emits `null` page values explicitly instead of omitting them.
 - Shared props are emitted before page props in `props` (page props still win on key conflicts).
 
 ### Fixed

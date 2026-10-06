@@ -163,9 +163,13 @@ External navigation must support:
 ## Infinite scroll
 
 Infinite scroll support must include:
-- merge metadata
-- `scrollProps`
-- merge-intent override via `X-Inertia-Infinite-Scroll-Merge-Intent`
+- `Inertia.Scroll(...)` / `ScrollProp`, merging the array under a wrapper key (`mergeProps: ["prop.data"]`)
+- `scrollProps` entries with `pageName`, `previousPage`, `nextPage`, `currentPage` (numbers or cursor strings,
+  `null` emitted explicitly) and `reset` (`true` when the prop is listed in `X-Inertia-Reset`)
+- merge-intent override via `X-Inertia-Infinite-Scroll-Merge-Intent` (`prepend` switches to `prependProps`)
+- optional deferral: a deferred scroll prop is announced in `deferredProps` and emits no `scrollProps` on the full
+  visit
+- the legacy `MergeProp.WithScroll(...)` API (obsolete), which merges at the root
 
 ## Compatibility requirements
 

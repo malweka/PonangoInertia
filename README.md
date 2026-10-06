@@ -104,10 +104,13 @@ Advanced prop wrappers:
 var result = _inertia.Render("Dashboard/Index", new { user });
 result.With("permissions", Inertia.Always(() => GetPermissions()));
 result.With("analytics", Inertia.Optional(() => GetAnalytics()));
-result.With("report", Inertia.Defer(() => BuildReport(), group: "dashboard"));
-result.With("plans", Inertia.Once(() => GetPlans()));
-result.With("posts", Inertia.Merge(() => page.Items, MergeMode.Append)
-    .WithScroll(page.CurrentPage, page.PreviousPage, page.NextPage));
+result.With("report", Inertia.Defer(() => BuildReport(), group: "dashboard", rescue: true));
+result.With("stats", Inertia.Defer(() => BuildStats()).Once());
+result.With("plans", Inertia.Once(() => GetPlans()).Until(TimeSpan.FromHours(1)));
+result.With("feed", Inertia.Merge(() => feed).Append("data", matchOn: "id"));
+result.With("posts", Inertia.Scroll(
+    () => page,
+    ScrollMetadata.ForPage(page.CurrentPage, page.PreviousPage, page.NextPage)));
 ```
 
 ## Configuration

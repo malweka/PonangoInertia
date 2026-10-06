@@ -195,6 +195,10 @@ public class MergeProp : IResolvableProp, IMergeableProp, IOnceableProp, IMergeI
         return this;
     }
 
+    /// <summary>
+    /// Attaches infinite scroll metadata. The whole prop value is merged at the root.
+    /// </summary>
+    [Obsolete("Use Inertia.Scroll(...) instead, which merges the inner data array and supports cursors and deferral.")]
     public MergeProp WithScroll(ScrollPropConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -202,6 +206,10 @@ public class MergeProp : IResolvableProp, IMergeableProp, IOnceableProp, IMergeI
         return this;
     }
 
+    /// <summary>
+    /// Attaches infinite scroll metadata. The whole prop value is merged at the root.
+    /// </summary>
+    [Obsolete("Use Inertia.Scroll(...) instead, which merges the inner data array and supports cursors and deferral.")]
     public MergeProp WithScroll(
         int currentPage,
         int? previousPage = null,
@@ -250,7 +258,11 @@ public class MergeProp : IResolvableProp, IMergeableProp, IOnceableProp, IMergeI
             MatchOnPaths: _merge.MatchOnPaths);
     }
 
-    object? IScrollMetadataProvider.GetScrollMetadata(object? resolvedValue, bool reset) => ScrollConfig;
+    object? IScrollMetadataProvider.GetScrollMetadata(object? resolvedValue, bool reset)
+        => ScrollConfig == null
+            ? null
+            : new ScrollMetadata(ScrollConfig.PageName, ScrollConfig.PreviousPage, ScrollConfig.NextPage, ScrollConfig.CurrentPage)
+                .ToDictionary(reset);
 
     bool IMergeableProp.ShouldMerge => _merge.ShouldMerge;
     bool IMergeableProp.ShouldDeepMerge => _merge.ShouldDeepMerge;

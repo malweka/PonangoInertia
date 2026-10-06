@@ -1,6 +1,6 @@
 # Plan: Align Ponango.Inertia with the current Inertia.js v3 protocol
 
-- **Status:** ready to execute
+- **Status:** executed on branch `feat/inertia-v3-alignment` (one commit per phase), see [Execution notes](#execution-notes)
 - **Written:** 2026-10-06, against `main` @ `9f608b2`
 - **Target release:** `3.0.0` (some fixes change wire behavior, see [Versioning](#versioning-decision))
 - **Executor:** an AI coding agent, one phase at a time
@@ -890,3 +890,25 @@ Control responses (no body, no `X-Inertia` header):
 | `PlanCoverageTests.Once_props_emit_metadata_and_respect_except_header` | 3 | Second response keeps `onceProps.plans` |
 
 Any other existing test that fails is a regression.
+
+## Execution notes
+
+All eight phases were implemented as planned. Deviations and decisions made during execution:
+
+- **Extra test updated (Phase 3):** `InertiaResultTests.Merge_intent_header_can_switch_append_to_prepend` encoded the
+  old "merge intent overrides every MergeProp" behavior and was not listed in Appendix B. It became
+  `Merge_intent_header_switches_scroll_merge_props_but_not_plain_merge_props`, which covers both cases.
+- **`Append`/`Prepend` enable merging:** on `DeferredProp`, calling `Append(...)`/`Prepend(...)` turns merging on
+  (the reference requires a separate `merge()` call first, otherwise the paths are silently ignored).
+- **`As(...)` and `Until(...)` imply `Once()`** on optional, deferred and merge props.
+- **Merge intent on deferred scroll props:** the full-visit merge label of a deferred scroll prop follows the
+  merge intent and targets the wrapper (`posts.data`). The reference skips intent configuration there and labels
+  the root.
+- **Lazy delegates:** any `Func<T>` with a reference-type `T` is treated as lazy (covariance), and returned tasks
+  are awaited.
+- **Phase 7 scope:** only anonymous objects and string-keyed `IDictionary` instances are walked; lists and POCOs
+  are opaque. A container is rebuilt only when it holds prop types or a partial path targets inside it, and rebuilt
+  anonymous objects apply the serializer's naming policy and null-skipping.
+- **Shared test helpers:** `tests/Ponango.Inertia.Tests/TestHelpers.cs` was added for the new test classes.
+- **Tooling note:** Git Bash `sed -i` rewrites CRLF files to LF; edits were made with Python helpers that keep
+  CRLF.

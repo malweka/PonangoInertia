@@ -6,6 +6,7 @@ A .NET 8.0 server-side adapter for [Inertia.js](https://inertiajs.com/), enablin
 
 - [Getting Started](./docs/getting-started.md)
 - [Advanced Topics](./docs/advanced-topics.md)
+- [Upgrading to 3.0](./docs/upgrading-to-3.0.md)
 - [Migration From v1](./docs/migration-from-v1.md)
 - [Changelog](./CHANGELOG.md)
 
@@ -155,14 +156,27 @@ Pair this server-side adapter with the official Inertia.js client adapter for yo
 - **React**: `@inertiajs/react`
 - **Svelte**: `@inertiajs/svelte`
 
+Use version 3.x of the client adapter (3.8.0 or later for big integer support).
+
 See the [Inertia.js documentation](https://inertiajs.com/) for client-side setup instructions.
 
 ## Upgrade Notes
 
+- Upgrading from 2.x? Read [docs/upgrading-to-3.0.md](./docs/upgrading-to-3.0.md). Flash data moved to
+  `page.flash`, and several protocol details now match Inertia v3.
 - Add `app.UseInertia()` to the middleware pipeline.
 - Prefer `Render(...)` over the older `Inertia(...)` helpers.
 - Prefer `OptionalProp` over `LazyProp`.
 - Read [docs/migration-from-v1.md](./docs/migration-from-v1.md) if you are upgrading an older integration.
+
+## Not Supported Yet
+
+These Inertia v3 server features are not implemented:
+
+- server-side rendering (SSR)
+- the DevTools server protocol
+- an Inertia-aware exception/error-page helper
+- `ProvidesInertiaProperty` / `ProvidesInertiaProperties`-style prop provider interfaces
 
 ## License
 

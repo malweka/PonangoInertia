@@ -57,14 +57,10 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 
 ### Breaking changes
 
-- `Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter. Source
-  compatible, but code compiled against 2.x must be recompiled.
 - Flash data is now emitted in the page object's top-level `flash` field, as Inertia v3 expects, instead of
   `props.flash`. Read it with `usePage().flash` or the `flash` event; the client no longer stores it in history,
   so it does not reappear on Back. A prop you share as `flash` is now an ordinary prop and is not merged with
   flashed values, and `flash` no longer appears in `sharedProps`.
-- Top-level prop keys containing dots (`["auth.user"] = ...`) are now unpacked into nested objects (`auth.user`),
-  as in the reference adapter. They used to be emitted as literal `"auth.user"` keys.
 - `props.errors` is now always present, as `{}` when there are no errors.
 - Partial reloads that send only `X-Inertia-Partial-Except` now also resolve optional and deferred props that
   are not excluded, matching the reference adapter. Full visits still never resolve them.
@@ -73,6 +69,10 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
     `X-Inertia-Redirect`, which made the client fetch another origin by XHR);
   - an internal redirect whose target contains a `#fragment` now returns `409` + `X-Inertia-Redirect`, so the
     client keeps the fragment (prefetch requests excepted).
+- Top-level prop keys containing dots (`["auth.user"] = ...`) are now unpacked into nested objects (`auth.user`),
+  as in the reference adapter. They used to be emitted as literal `"auth.user"` keys.
+- `Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter. Source
+  compatible, but code compiled against 2.x must be recompiled.
 
 ## 2.1.0
 
@@ -144,7 +144,5 @@ First release published to nuget.org.
 
 ### Breaking changes
 
-- `Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter. Source
-  compatible, but code compiled against 2.x must be recompiled.
 - applications should add `app.UseInertia()` to the middleware pipeline
 - the initial HTML response uses a script-tag page payload instead of the old `data-page` attribute format

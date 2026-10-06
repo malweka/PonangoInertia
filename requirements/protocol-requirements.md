@@ -37,7 +37,7 @@ The initial non-Inertia response must render:
 
 ```html
 <div id="app"></div>
-<script type="application/json" data-page data-inertia>{...}</script>
+<script type="application/json" data-page="app" data-inertia>{...}</script>
 ```
 
 The legacy `data-page` attribute format is not the target format.

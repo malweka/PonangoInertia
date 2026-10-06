@@ -19,6 +19,8 @@ Coverage should include:
 - external redirects
 - prefetch handling
 - infinite scroll metadata
+- composed prop types (deferred/merge/once/rescue) and nested dot-notation paths
+- big integer markers
 - public API ergonomics
 
 When protocol behavior changes, corresponding tests should be added or updated in the same change.
@@ -29,7 +31,7 @@ The repository should keep:
 - `README.md` as the entry point
 - `docs/getting-started.md` for new users
 - `docs/advanced-topics.md` for data and protocol behavior
-- `docs/migration-from-v1.md` for upgrade guidance
+- `docs/migration-from-v1.md` and `docs/upgrading-to-3.0.md` for upgrade guidance
 - `CHANGELOG.md` for released changes
 
 ## Agent guidance

@@ -243,6 +243,65 @@ public class ValidationErrorRedirectTests
     }
 
     [Fact]
+    public async Task Explicit_FlashErrors_dictionary_is_not_overwritten_by_automatic_capture()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        StartInertiaPost(test);
+        test.HttpContext.Request.Headers.Referer = "https://app.test/users/create";
+
+        var inertia = test.GetRequiredService<InertiaContext>();
+        inertia.FlashErrors(new Dictionary<string, string> { ["email"] = "Explicit message" }, "explicitBag");
+        RunFilter(test, Invalid("email", "Automatic message"), inertia.Back());
+
+        await AssertExplicitErrorsDeliveredOnceAsync(test);
+    }
+
+    [Fact]
+    public async Task Explicit_FlashErrors_model_state_is_not_overwritten_by_automatic_capture()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        StartInertiaPost(test);
+        test.HttpContext.Request.Headers.Referer = "https://app.test/users/create";
+
+        var inertia = test.GetRequiredService<InertiaContext>();
+        inertia.FlashErrors(Invalid("email", "Explicit message"), "explicitBag");
+        RunFilter(test, Invalid("email", "Automatic message"), inertia.Back());
+
+        await AssertExplicitErrorsDeliveredOnceAsync(test);
+    }
+
+    [Fact]
+    public async Task Errors_pending_from_an_earlier_request_are_replaced()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        StartInertiaPost(test);
+        RunFilter(test, Invalid("email", "First attempt"), new RedirectResult("/users/create"));
+
+        // A second form request before any page is built: a new request scope, as in a real app.
+        using var secondRequestScope = test.GetRequiredService<IServiceScopeFactory>().CreateScope();
+        test.HttpContext.RequestServices = secondRequestScope.ServiceProvider;
+        RunFilter(test, Invalid("name", "Second attempt"), new RedirectResult("/users/create"));
+
+        using var document = await RenderNextPageAsync(test);
+        var errors = Errors(document);
+        Assert.Equal("Second attempt", errors.GetProperty("name").GetString());
+        Assert.False(errors.TryGetProperty("email", out _));
+    }
+
+    static async Task AssertExplicitErrorsDeliveredOnceAsync(TestInfrastructure.TestContext test)
+    {
+        using (var first = await RenderNextPageAsync(test))
+        {
+            var errors = Errors(first);
+            Assert.Equal("Explicit message", errors.GetProperty("explicitBag").GetProperty("email").GetString());
+            Assert.False(errors.TryGetProperty("email", out _));
+        }
+
+        using var second = await RenderNextPageAsync(test);
+        AssertNoErrors(second);
+    }
+
+    [Fact]
     public async Task Option_off_disables_automatic_capture()
     {
         using var test = TestInfrastructure.CreateContext(options => options.PersistValidationErrorsOnRedirect = false);
@@ -335,6 +394,11 @@ public class ValidationErrorRedirectTests
     [InlineData("/\\evil.test/users/create", "/fallback")]
     [InlineData("javascript:alert(1)", "/fallback")]
     [InlineData("", "/fallback")]
+    // A same-host referer whose path starts like another host must not become "//evil.test/...".
+    [InlineData("https://app.test//evil.test/path", "/fallback")]
+    [InlineData("https://app.test/\\evil.test/path", "/fallback")]
+    // Browsers drop tabs and newlines from URLs, so "/\t/evil.test" would become "//evil.test".
+    [InlineData("/\t/evil.test/path", "/fallback")]
     public void Back_redirects_to_same_host_referer_else_fallback(string referer, string expected)
     {
         using var test = TestInfrastructure.CreateContext();
@@ -344,6 +408,39 @@ public class ValidationErrorRedirectTests
         var result = test.GetRequiredService<InertiaContext>().Back("/fallback");
 
         Assert.Equal(expected, result.Url);
+    }
+
+    [Theory]
+    [InlineData("GET", StatusCodes.Status302Found)]
+    [InlineData("POST", StatusCodes.Status303SeeOther)]
+    public async Task Back_never_sends_a_location_on_another_host(string method, int expectedStatus)
+    {
+        foreach (var referer in new[] { "https://app.test//evil.test/path", "https://app.test/\\evil.test/path" })
+        {
+            using var test = TestInfrastructure.CreateContext();
+            TestHelpers.AsInertia(test.HttpContext);
+            test.HttpContext.Request.Method = method;
+            test.HttpContext.Request.Headers.Referer = referer;
+
+            await test.GetRequiredService<InertiaContext>().Back("/fallback")
+                .ExecuteResultAsync(TestInfrastructure.CreateActionContext(test.HttpContext));
+
+            Assert.Equal(expectedStatus, test.HttpContext.Response.StatusCode);
+            var location = test.HttpContext.Response.Headers.Location.ToString();
+            Assert.True(location is "/fallback" or "https://app.test/fallback", $"{referer} redirected to {location}");
+        }
+    }
+
+    [Theory]
+    [InlineData("https://evil.test/")]
+    [InlineData("//evil.test/")]
+    [InlineData("/\\evil.test/")]
+    [InlineData("users")]
+    public void Back_rejects_a_fallback_that_is_not_a_local_path(string fallbackUrl)
+    {
+        using var test = TestInfrastructure.CreateContext();
+
+        Assert.Throws<ArgumentException>(() => test.GetRequiredService<InertiaContext>().Back(fallbackUrl));
     }
 
     [Fact]

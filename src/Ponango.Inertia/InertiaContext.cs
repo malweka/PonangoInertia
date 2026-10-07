@@ -123,6 +123,11 @@ public class InertiaContext
     /// </summary>
     internal object? PullErrors() => validationErrors?.Pull(Headers.ErrorBag);
 
+    /// <summary>
+    /// Whether <c>FlashErrors</c> stored errors during this request, so automatic capture must not replace them.
+    /// </summary>
+    internal bool FlashedErrorsInThisRequest => validationErrors?.StoredInThisRequest == true;
+
     bool IsInertiaRequest()
     {
         if (httpContext == null)

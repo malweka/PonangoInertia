@@ -30,10 +30,10 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 - Validation errors are kept across a redirect, as Laravel does with its session: an Inertia non-GET request that
   redirects with an invalid `ModelState` delivers the errors in `props.errors` of the next rendered page (captured
   by an MVC filter that `AddInertia` registers). `InertiaContext.FlashErrors(...)` stores errors explicitly, for
-  minimal APIs or custom validation, and `InertiaOptions.PersistValidationErrorsOnRedirect` (default `true`) turns
-  the automatic capture off.
-- `Back(fallbackUrl)` on `InertiaContext` and `InertiaController` redirects to a same-host `Referer`, else to the
-  fallback URL.
+  minimal APIs or custom validation, and wins over the automatic capture in the same request.
+  `InertiaOptions.PersistValidationErrorsOnRedirect` (default `true`) turns the automatic capture off.
+- `Back(fallbackUrl)` on `InertiaContext` and `InertiaController` redirects to a same-host `Referer` whose path is
+  local, else to the fallback URL, which must be a local path.
 - `InertiaOptions.ExposeSharedPropKeys` (default `true`) can turn off the `sharedProps` list.
 - Lazy delegate props: a prop value that is a delegate taking no arguments and returning a value (`Func<object>`,
   `Func<int>`, `Func<Task<T>>`, `Func<ValueTask<T>>`) is only evaluated when the response includes it. It used to

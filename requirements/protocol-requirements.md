@@ -146,6 +146,7 @@ Validation errors must support:
   `props.errors` of the next rendered page, once
 - scoping kept errors under the bag of the request that stored them, else under the follow-up request's
   `X-Inertia-Error-Bag`
+- errors stored with `FlashErrors(...)` during a request are not replaced by the automatic capture
 - a page or shared `errors` prop wins over kept errors, which are still cleared
 - a version-mismatch `409` does not consume kept errors
 

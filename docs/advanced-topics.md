@@ -134,7 +134,8 @@ public IActionResult Store(CreateUserRequest request)
 ```
 
 `Back()` (on `InertiaContext`, and on `InertiaController`) redirects to the `Referer` when it is on the same host,
-and otherwise to its fallback URL (`Back("/users/create")`, `/` by default). It never redirects to another host.
+and otherwise to its fallback URL (`Back("/users/create")`, `/` by default). The fallback must be a path on this
+host, and `Back()` never redirects to another host.
 
 The errors use the same shape as `WithErrors`: the first message per field, or every message with
 `WithAllErrors`. They are nested under the request's `X-Inertia-Error-Bag`, or under the follow-up request's when
@@ -151,6 +152,8 @@ inertia.FlashErrors(ModelState);                                   // optional b
 inertia.FlashErrors(new Dictionary<string, string> { ["email"] = "Email is taken" });
 return inertia.Back();
 ```
+
+Errors stored with `FlashErrors` win: the automatic capture doesn't replace them (or their bag) in the same request.
 
 To keep errors only when you call `FlashErrors` yourself, turn off the automatic capture:
 

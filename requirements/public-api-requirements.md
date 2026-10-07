@@ -94,8 +94,9 @@ There should be a first-class API for external location responses:
 ## Redirect back
 
 `InertiaContext.Back(fallbackUrl)` and `InertiaController.Back(fallbackUrl)` should redirect to the `Referer` when
-it is on the request's host (its path and query), else to the fallback URL. They must never redirect to another
-host.
+it is on the request's host and its path and query form a local path, else to the fallback URL. The fallback must be
+a local path (an `ArgumentException` otherwise). They must never redirect to another host, including through a
+same-host referer whose path starts with `//` or `/\`.
 
 ## Documentation expectations
 

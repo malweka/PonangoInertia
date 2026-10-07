@@ -37,6 +37,10 @@ internal sealed class InertiaValidationErrorsFilter : IResultFilter
         if (inertia == null || !inertia.IsInertia || inertia.IsPrecognition)
             return;
 
+        // Errors the action stored explicitly with FlashErrors (and their bag) win over the ModelState.
+        if (inertia.FlashedErrorsInThisRequest)
+            return;
+
         inertia.FlashErrors(context.ModelState);
     }
 

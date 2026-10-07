@@ -34,7 +34,8 @@ namespace Ponango.Inertia
 
         /// <summary>
         /// Redirects back to the page the request came from when it is on this host, else to
-        /// <paramref name="fallbackUrl"/>. Validation errors in an invalid ModelState are kept for that page.
+        /// <paramref name="fallbackUrl"/>, which must be a path on this host. Validation errors in an invalid
+        /// ModelState are kept for that page.
         /// </summary>
         [NonAction]
         public RedirectResult Back(string fallbackUrl = "/") => InertiaContext.Back(fallbackUrl);

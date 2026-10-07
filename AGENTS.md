@@ -182,7 +182,10 @@ Responsible for:
 - `InertiaValidationErrors` keeps errors and their bag in TempData (`__inertia_errors`) until a page is built
 - `InertiaValidationErrorsFilter`, a global MVC result filter registered by `AddInertia`, stores the `ModelState`
   errors of Inertia non-GET requests whose result is a redirect (`IKeepTempDataResult`), unless
-  `PersistValidationErrorsOnRedirect` is off or the request is precognitive
+  `PersistValidationErrorsOnRedirect` is off, the request is precognitive, or `FlashErrors` already stored errors
+  in the same request
+- `Back(...)` only redirects to a local path: a same-host referer's path is checked too, and the fallback must be
+  local
 
 ### PropsResolver
 

@@ -23,6 +23,12 @@ public class InertiaValidationErrors
     }
 
     /// <summary>
+    /// Whether errors were stored during this request. The service is scoped, so this covers the current request
+    /// only; errors still pending from an earlier request don't count.
+    /// </summary>
+    internal bool StoredInThisRequest { get; private set; }
+
+    /// <summary>
     /// Stores flat errors (<c>field → string</c> or <c>field → string[]</c>) and the error bag they belong to, if
     /// any. Replaces errors stored earlier.
     /// </summary>
@@ -37,6 +43,7 @@ public class InertiaValidationErrors
             Errors = errors
         });
         tempData.Save();
+        StoredInThisRequest = true;
     }
 
     /// <summary>

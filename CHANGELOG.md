@@ -4,6 +4,10 @@
 
 Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-to-3.0.md](docs/upgrading-to-3.0.md).
 
+Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
+
+- `3.0.0-beta.1` (2026-10-06): everything below.
+
 ### Added
 
 - `docs/compatibility.md`: feature-by-feature compatibility tables against Inertia.js 3.8.0, and a README

@@ -51,8 +51,9 @@ jobs:
               ;;
             refs/heads/release/*)
               LINE="${GITHUB_REF#refs/heads/release/}"
-              # Convention is the exact version: release/2.1.0. release/2.1 is still accepted and
-              # normalized to 2.1.0, so an abbreviated branch name is not a hard failure.
+              # Convention is the exact version: release/2.1.0, or release/3.0.0-beta.1 for a pre-release
+              # (its candidates are 3.0.0-beta.1-rc.N). release/2.1 is still accepted and normalized to
+              # 2.1.0, so an abbreviated branch name is not a hard failure.
               case "$LINE" in
                 *.*.*) BASE="$LINE" ;;
                 *.*)   BASE="$LINE.0" ;;
@@ -73,6 +74,11 @@ jobs:
 
           BASE="${VERSION%%-*}"                    # strip any -rc.N  ->  2.1.0
 
+          # A published version with a suffix (v3.0.0-beta.1) is a pre-release: nuget.org infers that from
+          # the version, but the GitHub Release has to be told, or it is marked Latest above the stable one.
+          PRERELEASE=false
+          if [ "$VERSION" != "$BASE" ]; then PRERELEASE=true; fi
+
           # AssemblyVersion and FileVersion are both {semver}.{build}, e.g. 2.1.0.42.
           # GITHUB_RUN_NUMBER is the build number: it increments per workflow and never resets.
           # Neither may carry a prerelease suffix -- both must be four numeric parts.
@@ -81,9 +87,10 @@ jobs:
             echo "file_version=${BASE}.${GITHUB_RUN_NUMBER}"     # 2.1.0.42
             echo "assembly_version=${BASE}.${GITHUB_RUN_NUMBER}" # 2.1.0.42
             echo "publish=$PUBLISH"
+            echo "prerelease=$PRERELEASE"
           } >> "$GITHUB_OUTPUT"
 
-          echo "Building $VERSION (publish=$PUBLISH)"
+          echo "Building $VERSION (publish=$PUBLISH, prerelease=$PRERELEASE)"
 
       # A tag must sit on the release branch it was cut from. Catches tagging main by accident.
       - name: Verify tag is on a release branch
@@ -166,6 +173,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          FLAGS=()
+          if [ "${{ steps.v.outputs.prerelease }}" = "true" ]; then FLAGS+=(--prerelease); fi
           gh release create "${{ github.ref_name }}" artifacts/*.nupkg \
             --title "${{ github.ref_name }}" \
-            --generate-notes
+            --generate-notes \
+            "${FLAGS[@]}"

@@ -5,6 +5,9 @@
 #   ./scripts/release.sh cut     2.1.0    -> create + push release/2.1.0  (CI builds a candidate)
 #   ./scripts/release.sh publish 2.1.0    -> create + push tag v2.1.0     (CI publishes to nuget.org)
 #
+# Pre-releases work the same way with a SemVer suffix: `cut 3.0.0-beta.1` pushes release/3.0.0-beta.1,
+# `publish 3.0.0-beta.1` pushes tag v3.0.0-beta.1, and CI marks the GitHub Release as a pre-release.
+#
 # Two phases on purpose: `publish` refuses to tag unless the candidate build for this exact commit
 # is green. nuget.org versions are permanent -- a version pushed by mistake cannot be replaced, only
 # unlisted -- so the gate is worth the extra command.
@@ -22,11 +25,13 @@ cd "$(git rev-parse --show-toplevel)"
 usage() {
     cat >&2 <<'EOF'
 usage:
-  release.sh cut     <MAJOR.MINOR.PATCH>    e.g. release.sh cut 2.1.0
-  release.sh publish <MAJOR.MINOR.PATCH>    e.g. release.sh publish 2.1.0
+  release.sh cut     <VERSION>    e.g. release.sh cut 2.1.0
+  release.sh publish <VERSION>    e.g. release.sh publish 2.1.0
 
-  cut     -> branch release/X.Y.Z from main; CI builds+packs a candidate (publishes nothing)
-  publish -> tag vX.Y.Z on that branch;      CI pushes to nuget.org (permanent)
+  VERSION is MAJOR.MINOR.PATCH, or MAJOR.MINOR.PATCH-PRERELEASE for a pre-release (e.g. 3.0.0-beta.1).
+
+  cut     -> branch release/VERSION from main; CI builds+packs a candidate (publishes nothing)
+  publish -> tag vVERSION on that branch;      CI pushes to nuget.org (permanent)
 EOF
     exit 2
 }
@@ -34,6 +39,16 @@ EOF
 [ $# -eq 2 ] || usage
 COMMAND="$1"
 VERSION="$2"
+
+# Same SemVer check as release.yml, before anything reaches nuget.org.
+require_version() {
+    [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] \
+        || die "$COMMAND takes MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-PRERELEASE (e.g. 2.1.0, 3.0.0-beta.1), got '$VERSION'"
+
+    # Candidate builds already append -rc.N, so release/3.0.0-rc.1 would build 3.0.0-rc.1-rc.42.
+    [[ "$VERSION" != *-rc* ]] \
+        || die "use a pre-release label other than rc (e.g. 3.0.0-beta.1 or 3.0.0-preview.1), got '$VERSION'"
+}
 
 require_clean_tree() {
     git diff --quiet && git diff --cached --quiet \
@@ -43,8 +58,7 @@ require_clean_tree() {
 case "$COMMAND" in
 
 cut)
-    [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
-        || die "cut takes MAJOR.MINOR.PATCH (e.g. 2.1.0), got '$VERSION'"
+    require_version
 
     BRANCH="release/$VERSION"
     require_clean_tree
@@ -69,8 +83,7 @@ cut)
     ;;
 
 publish)
-    [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
-        || die "publish takes MAJOR.MINOR.PATCH (e.g. 2.1.0), got '$VERSION'"
+    require_version
 
     TAG="v$VERSION"
     BRANCH="release/$VERSION"
@@ -78,9 +91,12 @@ publish)
 
     require_clean_tree
 
-    # release/2.1.0 is the convention; release/2.1 is accepted, matching release.yml.
+    # release/2.1.0 is the convention; release/2.1 is accepted for a plain version, matching release.yml.
+    # A pre-release is published from its exact branch only.
     case "$CURRENT" in
-        "$BRANCH"|"release/${VERSION%.*}") ;;
+        "$BRANCH") ;;
+        "release/${VERSION%.*}")
+            [[ "$VERSION" != *-* ]] || die "publish from $BRANCH; currently on $CURRENT" ;;
         *) die "publish from $BRANCH; currently on $CURRENT" ;;
     esac
 

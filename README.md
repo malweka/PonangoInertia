@@ -99,8 +99,8 @@ Ponango.Inertia implements the server side of the Inertia v3 protocol for ASP.NE
   `only: ['auth.notifications']`.
 - **Shared data and flash:** app-wide props through options or per request, `ShareOnce`, and flash data in
   `page.flash` that survives redirects.
-- **Validation:** `WithErrors(ModelState)`, error bags, optional all-messages-per-field, and `[Precognitive]`
-  actions.
+- **Validation:** `WithErrors(ModelState)`, errors kept across a redirect back (`Back()`), error bags, optional
+  all-messages-per-field, and `[Precognitive]` actions.
 - **History and navigation:** encrypt or clear history, preserve URL fragments, detect prefetch requests.
 - **Big integers:** 64-bit IDs delivered to the browser as exact `BigInt` values.
 
@@ -159,6 +159,7 @@ builder.Services.AddInertia(options =>
     options.EncryptHistory = true;
     options.PreserveBigIntegers = true; // 64-bit IDs arrive as BigInt (client 3.8.0+)
     options.WithAllErrors = false;      // true: every validation message per field, as an array
+    options.PersistValidationErrorsOnRedirect = true; // keep ModelState errors across a redirect back
     options.ExposeSharedPropKeys = true; // list shared keys in sharedProps (used by instant visits)
     options.SharedData = ctx => new Dictionary<string, object>
     {
@@ -213,8 +214,7 @@ These Inertia v3 server features are not implemented:
 - `ProvidesInertiaProperty` / `ProvidesInertiaProperties`-style prop provider interfaces
 - testing helpers like Laravel's `assertInertia`
 
-Validation errors are returned by re-rendering the page with `WithErrors(...)`; they are not carried across a
-redirect. CSRF protection uses ASP.NET Core antiforgery, which you configure yourself. See
+CSRF protection uses ASP.NET Core antiforgery, which you configure yourself. See
 [docs/compatibility.md](./docs/compatibility.md) for details.
 
 ## License

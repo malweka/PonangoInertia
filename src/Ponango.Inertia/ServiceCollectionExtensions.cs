@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -31,7 +32,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(Options.Create(options));
         services.AddHttpContextAccessor();
         services.AddScoped<InertiaFlash>();
+        services.AddScoped<InertiaValidationErrors>();
         services.AddScoped<InertiaContext>();
+
+        // Keeps validation errors across redirects; the filter is created per use, with its dependencies from DI.
+        services.Configure<MvcOptions>(mvc => mvc.Filters.Add<InertiaValidationErrorsFilter>());
 
         var jsonAction = options.JsonSerializerOptions ?? DefaultSerializerOptions;
         services.AddSingleton<IJsonSerializerOptionBuilder>(

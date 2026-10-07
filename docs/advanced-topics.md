@@ -115,6 +115,52 @@ builder.Services.AddInertia(options => options.WithAllErrors = true);
 
 When there are no errors, `props.errors` is still present as `{}`.
 
+### Redirecting back with errors
+
+The usual Inertia form flow redirects back to the form instead of re-rendering it. When an Inertia `POST`, `PUT`,
+`PATCH` or `DELETE` request ends in a redirect while `ModelState` is invalid, the errors are kept and delivered in
+`props.errors` of the next rendered page, as Laravel does with its session:
+
+```csharp
+[HttpPost("/users")]
+public IActionResult Store(CreateUserRequest request)
+{
+    if (!ModelState.IsValid)
+        return _inertia.Back();             // or RedirectToAction(nameof(Create))
+
+    // ...
+    return RedirectToAction(nameof(Index));
+}
+```
+
+`Back()` (on `InertiaContext`, and on `InertiaController`) redirects to the `Referer` when it is on the same host,
+and otherwise to its fallback URL (`Back("/users/create")`, `/` by default). The fallback must be a path on this
+host, and `Back()` never redirects to another host.
+
+The errors use the same shape as `WithErrors`: the first message per field, or every message with
+`WithAllErrors`. They are nested under the request's `X-Inertia-Error-Bag`, or under the follow-up request's when
+the form request sent none. They are delivered once, survive a version-mismatch `409`, and are backed by ASP.NET
+Core TempData like flash data. A page that sets `errors` itself (`WithErrors(...)`, or a shared `errors` prop) wins
+over them.
+
+Errors are captured automatically by an MVC filter that `AddInertia` registers, so this works for controllers and
+Razor Pages. Minimal API endpoints, and validation that doesn't go through `ModelState`, can store errors
+explicitly:
+
+```csharp
+inertia.FlashErrors(ModelState);                                   // optional bag: FlashErrors(ModelState, "createUser")
+inertia.FlashErrors(new Dictionary<string, string> { ["email"] = "Email is taken" });
+return inertia.Back();
+```
+
+Errors stored with `FlashErrors` win: the automatic capture doesn't replace them (or their bag) in the same request.
+
+To keep errors only when you call `FlashErrors` yourself, turn off the automatic capture:
+
+```csharp
+builder.Services.AddInertia(options => options.PersistValidationErrorsOnRedirect = false);
+```
+
 ## Prop wrappers
 
 Use the `Inertia` static helper to construct prop wrappers.

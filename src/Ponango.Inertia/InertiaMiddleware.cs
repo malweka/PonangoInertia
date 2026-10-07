@@ -110,7 +110,7 @@ public class InertiaMiddleware
             headers.Vary = $"{vary}, {value}";
     }
 
-    static bool IsExternalUrl(string location, HttpRequest request)
+    internal static bool IsExternalUrl(string location, HttpRequest request)
     {
         if (!Uri.TryCreate(location, UriKind.Absolute, out var uri))
             return false; // relative URL — internal

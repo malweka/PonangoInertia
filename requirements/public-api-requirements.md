@@ -42,7 +42,8 @@ Prop wrappers should be composable through fluent modifiers:
 - `OptionalProp`: `Once`, `As`, `Fresh`, `Until`
 - `OnceProp`: `As`, `Fresh`, `Until`
 
-`InertiaContext` should expose `Share(...)` and `ShareOnce(...)`.
+`InertiaContext` should expose `Share(...)` and `ShareOnce(...)`, and `FlashErrors(ModelStateDictionary, bag)` /
+`FlashErrors(IDictionary<string, string>, bag)` to keep validation errors for the next rendered page.
 
 A prop value that is a delegate taking no arguments and returning a value should be evaluated lazily, whatever
 its return type.
@@ -55,6 +56,7 @@ interfaces) are internal. Prop types defined outside the library are not a suppo
 `InertiaController` should expose:
 - `Render(...)`
 - `Location(...)`
+- `Back(...)`
 - request-state helpers:
   - `IsInertia`
   - `IsPrefetch`
@@ -78,6 +80,7 @@ Default component derivation should support route-based naming, including area/c
 - `EncryptHistory`
 - `PreserveBigIntegers`
 - `WithAllErrors`
+- `PersistValidationErrorsOnRedirect`
 - `ExposeSharedPropKeys`
 - `SharedData`
 - `JsonSerializerOptions` (applied once; the resulting options are reused for every response)
@@ -87,6 +90,13 @@ Default component derivation should support route-based naming, including area/c
 There should be a first-class API for external location responses:
 - `InertiaContext.Location(...)`
 - `InertiaController.Location(...)`
+
+## Redirect back
+
+`InertiaContext.Back(fallbackUrl)` and `InertiaController.Back(fallbackUrl)` should redirect to the `Referer` when
+it is on the request's host and its path and query form a local path, else to the fallback URL. The fallback must be
+a local path (an `ArgumentException` otherwise). They must never redirect to another host, including through a
+same-host referer whose path starts with `//` or `/\`.
 
 ## Documentation expectations
 

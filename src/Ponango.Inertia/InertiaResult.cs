@@ -130,29 +130,15 @@ namespace Ponango.Inertia
             if (modelState == null || modelState.IsValid) return this;
 
             // By default each field gets its first message; with WithAllErrors it gets all of them.
-            var allErrors = InertiaContext?.Request?.HttpContext.RequestServices
-                .GetService<IOptions<InertiaOptions>>()?.Value.WithAllErrors == true;
-
-            var errors = new Dictionary<string, object>();
-            foreach (var key in modelState.Keys)
-            {
-                var entry = modelState[key];
-                if (entry!.Errors.Count > 0)
-                {
-                    errors[key] = allErrors
-                        ? entry.Errors.Select(error => error.ErrorMessage).ToArray()
-                        : entry.Errors[0].ErrorMessage;
-                }
-            }
+            var allErrors = ValidationErrors.AllErrorsEnabled(InertiaContext?.Request?.HttpContext);
+            var errors = ValidationErrors.FromModelState(modelState, allErrors);
 
             if (errors.Count == 0) return this;
 
             // Resolve bag name: explicit arg takes priority, then request header
             var bag = errorBag ?? InertiaContext?.Headers?.ErrorBag;
 
-            Props["errors"] = string.IsNullOrEmpty(bag)
-                ? errors
-                : (object)new Dictionary<string, object> { [bag] = errors };
+            Props["errors"] = ValidationErrors.Scope(errors, bag);
 
             return this;
         }
@@ -235,9 +221,13 @@ namespace Ponango.Inertia
             foreach (var prop in Props)
                 props.Add(new(prop.Key, prop.Value));
 
+            // Errors stored before a redirect are consumed whenever a page is built, so they never reach a later page.
+            // A page or shared errors prop wins over them.
+            var storedErrors = InertiaContext.PullErrors();
+
             // The protocol requires an errors object on every page, even when there are no errors.
             if (!props.Any(prop => prop.Key == "errors"))
-                props.Add(new("errors", new Dictionary<string, object>()));
+                props.Add(new("errors", storedErrors ?? new Dictionary<string, object>()));
 
             var resolver = new PropsResolver(InertiaContext.Headers, isInertia: !fullVisit, Component, logger, serializerOptions);
             var resolvedProps = await resolver.ResolveAsync(props);

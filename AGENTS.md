@@ -32,7 +32,7 @@ Current capabilities include:
 - v3-style initial HTML payload via `<script type="application/json" data-page data-inertia>`
 - middleware-driven protocol handling via `app.UseInertia()`
 - shared props, once-shared props, and flash data emitted as the top-level `page.flash` field
-- error bags (optionally every message per field) and precognition
+- error bags (optionally every message per field), validation errors kept across a redirect back, and precognition
 - history flags: `encryptHistory`, `clearHistory`, `preserveFragment`
 - prop wrappers, composable through fluent modifiers:
   - `OptionalProp`
@@ -45,7 +45,7 @@ Current capabilities include:
 - nested prop types and dot-notation partial reloads
 - big integer markers (`preserveBigIntegers`)
 - prefetch detection
-- ergonomic APIs such as `Render(...)`, `Location(...)`, `With(...)`, and `WithFlash(...)`
+- ergonomic APIs such as `Render(...)`, `Location(...)`, `Back(...)`, `With(...)`, and `WithFlash(...)`
 
 ## Build and Test Commands
 
@@ -113,12 +113,16 @@ Inertia.Scroll(..., ScrollMetadata, wrapper) // .Defer() .MatchingOn()
 
 `InertiaContext.ShareOnce(...)` shares a once prop. A delegate prop value without parameters (`Func<T>`, `Func<Task<T>>`) is evaluated lazily.
 
+`InertiaContext.FlashErrors(ModelState | IDictionary<string, string>, bag)` keeps validation errors for the next
+rendered page, and `InertiaContext.Back(fallbackUrl)` redirects to a same-host `Referer`, else to the fallback.
+
 ### Controller base class
 
 `InertiaController` exposes:
 - `Render(...)`
 - `Location(...)`
 - `Redirect(...)` (303 for non-GET requests)
+- `Back(...)` (same-host `Referer`, else the fallback URL)
 - obsolete `Inertia(...)`
 - request flags:
   - `IsInertia`
@@ -165,7 +169,23 @@ Responsible for:
 - HTML vs JSON response generation
 - history/navigation flags and the `preserveBigIntegers` flag
 - reading flash data into `page.flash` when a page is built
+- reading validation errors kept across a redirect into `props.errors` when a page is built (a page or shared
+  `errors` prop wins, and the kept errors are cleared either way)
 - protocol fallback if middleware is missing
+
+### Validation errors across redirects
+
+`src/Ponango.Inertia/InertiaValidationErrors.cs`, `InertiaValidationErrorsFilter.cs`, `ValidationErrors.cs`
+
+- `ValidationErrors` builds the `errors` shape (first message, or all with `WithAllErrors`; nested under a bag) for
+  both `WithErrors` and the redirect path
+- `InertiaValidationErrors` keeps errors and their bag in TempData (`__inertia_errors`) until a page is built
+- `InertiaValidationErrorsFilter`, a global MVC result filter registered by `AddInertia`, stores the `ModelState`
+  errors of Inertia non-GET requests whose result is a redirect (`IKeepTempDataResult`), unless
+  `PersistValidationErrorsOnRedirect` is off, the request is precognitive, or `FlashErrors` already stored errors
+  in the same request
+- `Back(...)` only redirects to a local path: a same-host referer's path is checked too, and the fallback must be
+  local
 
 ### PropsResolver
 
@@ -193,6 +213,7 @@ Provides:
 - request header access
 - shared props (`Share`, `ShareOnce`)
 - flash support
+- `FlashErrors(...)` and `Back(...)` (an extension in `InertiaExtensions`)
 - request flags:
   - `IsInertia`
   - `IsPrefetch`
@@ -268,6 +289,8 @@ Supported request headers include:
 
 Important behavior:
 - `props.errors` is always present (`{}` by default) and survives partial reloads
+- validation errors kept across a redirect are scoped under the storing request's `X-Inertia-Error-Bag`, else the
+  follow-up request's, and a version-mismatch `409` does not consume them
 - with both `only` and `except`, `only` narrows first and `except` is then removed
 - `OptionalProp`, `LazyProp`, and `DeferredProp` never resolve on full visits
 - `X-Inertia-Reset` suppresses merge metadata for matching props and sets `scrollProps[*].reset`
@@ -306,6 +329,7 @@ Current coverage includes:
 - prop resolution and metadata (`PropsResolverTests`, `NestedPropsTests`)
 - infinite scroll (`ScrollPropTests`)
 - flash data at page level (`FlashTests`)
+- validation errors across redirects and `Back()` (`ValidationErrorRedirectTests`)
 - big integers (`BigIntegerTests`)
 - options and conveniences (`OptionsAndConveniencesTests`)
 - external and fragment redirects

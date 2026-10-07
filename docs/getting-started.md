@@ -139,6 +139,14 @@ public IActionResult Store(CreateUserRequest request)
 }
 ```
 
+Redirecting back to the form works too: errors from an invalid `ModelState` are kept across the redirect and
+delivered in `props.errors` of the next page.
+
+```csharp
+if (!ModelState.IsValid)
+    return _inertia.Back();
+```
+
 ## 8. Share global props
 
 For application-wide props, configure `SharedData`:

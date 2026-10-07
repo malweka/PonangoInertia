@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Ponango.Inertia;
 
@@ -9,6 +10,7 @@ public class InertiaContext
     private readonly HttpContext? httpContext;
     private bool? isInertia;
     private readonly InertiaFlash? flash;
+    private readonly InertiaValidationErrors? validationErrors;
 
     internal IAssetVersionProvider AssetVersionProvider { get; }
 
@@ -26,16 +28,25 @@ public class InertiaContext
 
     public IDictionary<string, object> SharedProps { get; } = new Dictionary<string, object>();
 
-    public InertiaContext(IHttpContextAccessor httpContextAccessor, IAssetVersionProvider assetVersionProvider, InertiaFlash? flash = null)
-        : this(httpContextAccessor.HttpContext!, assetVersionProvider, flash)
+    public InertiaContext(
+        IHttpContextAccessor httpContextAccessor,
+        IAssetVersionProvider assetVersionProvider,
+        InertiaFlash? flash = null,
+        InertiaValidationErrors? validationErrors = null)
+        : this(httpContextAccessor.HttpContext!, assetVersionProvider, flash, validationErrors)
     {
     }
 
-    public InertiaContext(HttpContext httpContext, IAssetVersionProvider assetVersionProvider, InertiaFlash? flash = null)
+    public InertiaContext(
+        HttpContext httpContext,
+        IAssetVersionProvider assetVersionProvider,
+        InertiaFlash? flash = null,
+        InertiaValidationErrors? validationErrors = null)
     {
         this.httpContext = httpContext;
         AssetVersionProvider = assetVersionProvider;
         this.flash = flash;
+        this.validationErrors = validationErrors;
     }
 
     public void Share(string key, object value)
@@ -74,6 +85,48 @@ public class InertiaContext
     /// </summary>
     internal IDictionary<string, object?> PullFlash()
         => flash?.ReadAll() ?? new Dictionary<string, object?>();
+
+    /// <summary>
+    /// Keeps validation errors for the next rendered Inertia page, which receives them in <c>props.errors</c>. Use it
+    /// before redirecting back to a form. Each field gets its first message, or all of them when
+    /// <see cref="InertiaOptions.WithAllErrors"/> is on. The errors are nested under <paramref name="errorBag"/>, else
+    /// under this request's <c>X-Inertia-Error-Bag</c>, else under the next request's. Does nothing when the
+    /// ModelState is valid.
+    /// </summary>
+    public void FlashErrors(ModelStateDictionary modelState, string? errorBag = null)
+    {
+        ArgumentNullException.ThrowIfNull(modelState);
+        if (modelState.IsValid) return;
+
+        var errors = ValidationErrors.FromModelState(modelState, ValidationErrors.AllErrorsEnabled(httpContext));
+        if (errors.Count > 0)
+            validationErrors?.Store(errors, errorBag ?? Headers.ErrorBag);
+    }
+
+    /// <summary>
+    /// Keeps validation errors (<c>field → message</c>) for the next rendered Inertia page, for validation that does
+    /// not use ModelState. See <see cref="FlashErrors(ModelStateDictionary, string?)"/>.
+    /// </summary>
+    public void FlashErrors(IDictionary<string, string> errors, string? errorBag = null)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+        if (errors.Count == 0) return;
+
+        validationErrors?.Store(
+            errors.ToDictionary(entry => entry.Key, entry => (object)entry.Value),
+            errorBag ?? Headers.ErrorBag);
+    }
+
+    /// <summary>
+    /// Reads and removes the stored validation errors, nested under their bag. Called internally by InertiaResult when
+    /// it builds the page. Returns null when none are stored.
+    /// </summary>
+    internal object? PullErrors() => validationErrors?.Pull(Headers.ErrorBag);
+
+    /// <summary>
+    /// Whether <c>FlashErrors</c> stored errors during this request, so automatic capture must not replace them.
+    /// </summary>
+    internal bool FlashedErrorsInThisRequest => validationErrors?.StoredInThisRequest == true;
 
     bool IsInertiaRequest()
     {

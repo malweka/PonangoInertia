@@ -32,6 +32,14 @@ namespace Ponango.Inertia
 
         public IActionResult Location(string url) => InertiaContext.Location(url);
 
+        /// <summary>
+        /// Redirects back to the page the request came from when it is on this host, else to
+        /// <paramref name="fallbackUrl"/>, which must be a path on this host. Validation errors in an invalid
+        /// ModelState are kept for that page.
+        /// </summary>
+        [NonAction]
+        public RedirectResult Back(string fallbackUrl = "/") => InertiaContext.Back(fallbackUrl);
+
         [Obsolete("Use Render() instead.")]
         public InertiaResult Inertia<T>(string viewName, T model, string? component = null, string? assetVersion = null)
         {

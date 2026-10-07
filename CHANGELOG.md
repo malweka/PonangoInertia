@@ -27,6 +27,13 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
   dictionaries are resolved, their metadata uses dot paths (`auth.notifications`), and partial reloads can target
   nested paths (`router.reload({ only: ["auth.notifications"] })`). Containers without wrappers serialize as before.
 - `InertiaOptions.WithAllErrors` sends every validation message per field as an array.
+- Validation errors are kept across a redirect, as Laravel does with its session: an Inertia non-GET request that
+  redirects with an invalid `ModelState` delivers the errors in `props.errors` of the next rendered page (captured
+  by an MVC filter that `AddInertia` registers). `InertiaContext.FlashErrors(...)` stores errors explicitly, for
+  minimal APIs or custom validation, and wins over the automatic capture in the same request.
+  `InertiaOptions.PersistValidationErrorsOnRedirect` (default `true`) turns the automatic capture off.
+- `Back(fallbackUrl)` on `InertiaContext` and `InertiaController` redirects to a same-host `Referer` whose path is
+  local, else to the fallback URL, which must be a local path.
 - `InertiaOptions.ExposeSharedPropKeys` (default `true`) can turn off the `sharedProps` list.
 - Lazy delegate props: a prop value that is a delegate taking no arguments and returning a value (`Func<object>`,
   `Func<int>`, `Func<Task<T>>`, `Func<ValueTask<T>>`) is only evaluated when the response includes it. It used to
@@ -42,6 +49,9 @@ Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-
 - `MergeProp.WithScroll(...)` is obsolete in favor of `Inertia.Scroll(...)`. Its `scrollProps` entry now includes
   `reset` (`true` when the prop is reset) and emits `null` page values explicitly instead of omitting them.
 - Shared props are emitted before page props in `props` (page props still win on key conflicts).
+- Validation errors from an Inertia form request that redirects with an invalid `ModelState` now reach the next
+  page instead of being dropped. Set `InertiaOptions.PersistValidationErrorsOnRedirect = false` to opt out.
+- The `InertiaContext` constructors gained an optional `InertiaValidationErrors? validationErrors` parameter.
 - Serializer options are built once per `IJsonSerializerOptionBuilder` instance and reused, instead of on every
   response. The `InertiaOptions.JsonSerializerOptions` callback therefore runs once and should not depend on
   the current request.

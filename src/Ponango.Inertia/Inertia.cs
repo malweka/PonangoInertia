@@ -106,7 +106,12 @@ public static class Inertia
     public static Task<IDictionary<string, object?>> BroadcastPropsAsync(object props, string? @event = null, string? socketId = null)
         => BroadcastPropsAsync(props, @event, socketId, logger: null);
 
-    internal static async Task<IDictionary<string, object?>> BroadcastPropsAsync(
+    /// <inheritdoc cref="BroadcastPropsAsync(object, string?, string?)"/>
+    /// <param name="props">The props to send, keyed by prop path.</param>
+    /// <param name="event">The event name for <c>__inertia.event</c>, or null.</param>
+    /// <param name="socketId">The connection that caused the change, for <c>__inertia.socketId</c>, or null.</param>
+    /// <param name="logger">Logs the exceptions of rescued props.</param>
+    public static async Task<IDictionary<string, object?>> BroadcastPropsAsync(
         object props,
         string? @event,
         string? socketId,

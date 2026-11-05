@@ -94,6 +94,17 @@ Default component derivation should support route-based naming, including area/c
 - `SharedData`
 - `JsonSerializerOptions` (applied once; the resulting options are reused for every response)
 
+## SignalR package
+
+`Ponango.Inertia.SignalR` should provide:
+- `AddInertiaLive(options => options.Channel(pattern, rule))` and `MapInertiaLive(path = "/inertia/live")`
+- `InertiaLiveHub` with `Subscribe(type, name)` / `Unsubscribe(type, name)`; public channels are open, private and
+  presence channels need a matching rule, encrypted private channels are refused
+- `IInertiaBroadcaster.BroadcastAsync(...)` for an `ILiveEvent` or an event name and channels, with optional props
+  and an excluded socket id; it sends `inertia(channelKey, payload)` to the group `{type}:{name}`
+- the protocol names as constants in `InertiaLiveProtocol`, kept in sync with the `@ponango/inertia-signalr`
+  client transport
+
 ## Location responses
 
 There should be a first-class API for external location responses:

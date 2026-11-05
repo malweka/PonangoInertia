@@ -60,9 +60,15 @@ dotnet build src/Ponango.Inertia/Ponango.Inertia.csproj -p:GeneratePackageOnBuil
 # Run the test project
 dotnet test tests/Ponango.Inertia.Tests/Ponango.Inertia.Tests.csproj -p:GeneratePackageOnBuild=false -nr:false -v:minimal
 
-# Pack the NuGet package
+# Run the SignalR package tests (in-memory server, real hub connections)
+dotnet test tests/Ponango.Inertia.SignalR.Tests/Ponango.Inertia.SignalR.Tests.csproj -nr:false -v:minimal
+
+# Pack the NuGet packages
 dotnet pack src/Ponango.Inertia/Ponango.Inertia.csproj -c Release
+dotnet pack src/Ponango.Inertia.SignalR/Ponango.Inertia.SignalR.csproj -c Release
 ```
+
+The solution `src/Ponango.Inertia/Ponango.Inertia.sln` holds both libraries and both test projects.
 
 If you are only validating behavior, prefer the test command over ad hoc manual checking.
 
@@ -213,6 +219,20 @@ merge modifiers shared by `OptionalProp`, `DeferredProp` and `MergeProp` live in
 and `LiveProp` derive from `LiveModifiers<TSelf>` directly); add a shared modifier there, not on one wrapper. When
 adapting more reference-adapter behavior, read `src/PropsResolver.php` in inertia-laravel first and follow it.
 
+### Ponango.Inertia.SignalR
+
+`src/Ponango.Inertia.SignalR/`, a separate NuGet package (same version as `Ponango.Inertia`) that carries live
+events over SignalR:
+
+- `InertiaLiveHub`: `Subscribe(type, name)` joins the group `{type}:{name}` after the channel rules in
+  `InertiaLiveOptions` allow it (public channels are open; encrypted private channels are refused);
+  `Unsubscribe(type, name)` leaves it
+- `IInertiaBroadcaster` (singleton): builds the payload with `Inertia.BroadcastPropsAsync` and sends
+  `inertia(channelKey, payload)` to each channel's group, optionally excluding a socket id
+- `AddInertiaLive(...)` / `MapInertiaLive(...)`
+- `InertiaLiveProtocol` holds the names shared with the `@ponango/inertia-signalr` client transport: change both
+  packages together
+
 ### InertiaContext
 
 `src/Ponango.Inertia/InertiaContext.cs`
@@ -343,6 +363,7 @@ Current coverage includes:
 - `QUERY` requests (`QueryMethodTests`)
 - empty responses redirected back (`EmptyResponseTests`)
 - live props and broadcast payloads (`LivePropTests`, `BroadcastPropsTests`)
+- the SignalR hub and broadcaster, in `tests/Ponango.Inertia.SignalR.Tests/` (`InertiaLiveHubTests`)
 - options and conveniences (`OptionsAndConveniencesTests`)
 - external and fragment redirects
 - prefetch detection

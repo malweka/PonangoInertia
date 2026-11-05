@@ -59,6 +59,10 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 - `Inertia.BroadcastPropsAsync(props, event, socketId)` builds the `{ "__inertia": { "props": ... } }` payload of a
   broadcast event that carries new prop values.
 - `InertiaContext.SocketId` and `InertiaController.SocketId` expose the client's `X-Socket-Id` header.
+- New package `Ponango.Inertia.SignalR`: carries live events over SignalR. `AddInertiaLive(...)` with per-channel
+  authorization rules (`options.Channel("orders.{id}", ...)`), `MapInertiaLive()` for the hub, and
+  `IInertiaBroadcaster` to send events with or without prop values. It ships with the same version as
+  `Ponango.Inertia`.
 
 ### Changed
 

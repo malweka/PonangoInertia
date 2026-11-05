@@ -151,7 +151,7 @@ adapter support beyond what's listed above.
 | [View transitions](https://inertiajs.com/docs/v3/the-basics/view-transitions) | ➖ | |
 | [Polling](https://inertiajs.com/docs/v3/data-props/polling) | ➖ | Uses partial reloads |
 | `useProp()` | ➖ | Reads a prop with its loading state |
-| Live transports (`echo()`, `pusher()`, `actionCable()`, custom), the `live` router event | ➖ | Needs a broadcaster that sends the events listed in `liveProps` |
+| Live transports (`echo()`, `pusher()`, `actionCable()`, custom), the `live` router event | ➖ | Needs a broadcaster that sends the events listed in `liveProps`: SignalR through `Ponango.Inertia.SignalR`, or a Pusher-protocol service |
 | [Load when visible](https://inertiajs.com/docs/v3/data-props/load-when-visible) (`<WhenVisible>`) | ➖ | Uses partial reloads (dot paths supported) |
 | [Remembering state](https://inertiajs.com/docs/v3/data-props/remembering-state) | ➖ | |
 | [Scroll management](https://inertiajs.com/docs/v3/advanced/scroll-management), [progress indicators](https://inertiajs.com/docs/v3/advanced/progress-indicators), [events](https://inertiajs.com/docs/v3/advanced/events) | ➖ | |
@@ -168,6 +168,7 @@ Where Ponango.Inertia intentionally differs from `inertia-laravel`:
 | Nested props | Walks every array | Walks anonymous objects and string-keyed dictionaries; classes, records and lists are sent whole |
 | Merge modifiers | `append(path)` needs a prior `merge()` on deferred props | `Append(path)` / `Prepend(path)` turn merging on |
 | Once modifiers | `as()` / `until()` need `once()` | `As(...)` / `Until(...)` imply `Once()` |
+| Live broadcasting | Laravel broadcasting (Reverb, Pusher, Ably) with `Broadcast::channel(...)` authorization | `Ponango.Inertia.SignalR` (hub, `options.Channel(...)` rules, `IInertiaBroadcaster`), or any broadcaster with `BroadcastPropsAsync` |
 | Live event and channel names | Derived from event classes (`broadcastAs()`, `broadcastOn()`) | Strings and `LiveChannel`, or an `ILiveEvent` that names itself and its channels |
 | Merge modifiers on live props | `append(path)` on a live deferred prop is allowed (only `merge()` turns merging on) | Every merge modifier turns merging on, so it throws on a live prop |
 | Errors after a redirect | Any request that redirects with errors in the session | Inertia non-GET requests that redirect with an invalid `ModelState`, or errors stored with `FlashErrors(...)` |

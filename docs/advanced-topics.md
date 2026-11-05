@@ -330,8 +330,13 @@ The client sends its broadcaster connection id in `X-Socket-Id`. Read it with `I
 `SocketId` in an `InertiaController`) to skip notifying the connection that caused a change.
 
 Live props need a broadcaster and a client transport. Ponango.Inertia emits the metadata and builds payloads, and
-works with any broadcaster: with a Pusher-protocol service (Pusher, Ably, Soketi) use the client's built-in
-`pusher()` transport and the service's .NET SDK; for SignalR, use `Ponango.Inertia.SignalR`.
+works with any broadcaster:
+
+- **SignalR:** the `Ponango.Inertia.SignalR` package provides the hub (with per-channel authorization) and an
+  `IInertiaBroadcaster`; the `@ponango/inertia-signalr` client transport connects to it. See the
+  [package README](../src/Ponango.Inertia.SignalR/README.md).
+- **A Pusher-protocol service** (Pusher, Ably, Soketi): use the client's built-in `pusher()` transport, and send
+  events with the service's .NET SDK and a `BroadcastPropsAsync` payload.
 
 ## Partial reloads
 

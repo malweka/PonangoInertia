@@ -125,12 +125,15 @@ jobs:
       - name: Test
         run: dotnet test src/Ponango.Inertia/Ponango.Inertia.sln -c Release --no-build --nologo
 
+      # Both packages ship with the same version. Ponango.Inertia.SignalR depends on Ponango.Inertia at that version.
       - name: Pack
         run: |
-          dotnet pack src/Ponango.Inertia/Ponango.Inertia.csproj -c Release --no-build --nologo -o artifacts \
-            -p:Version=${{ steps.v.outputs.version }} \
-            -p:FileVersion=${{ steps.v.outputs.file_version }} \
-            -p:AssemblyVersion=${{ steps.v.outputs.assembly_version }}
+          for project in src/Ponango.Inertia/Ponango.Inertia.csproj src/Ponango.Inertia.SignalR/Ponango.Inertia.SignalR.csproj; do
+            dotnet pack "$project" -c Release --no-build --nologo -o artifacts \
+              -p:Version=${{ steps.v.outputs.version }} \
+              -p:FileVersion=${{ steps.v.outputs.file_version }} \
+              -p:AssemblyVersion=${{ steps.v.outputs.assembly_version }}
+          done
           ls -l artifacts
 
       # ---- Candidate: keep the package, publish nothing ----

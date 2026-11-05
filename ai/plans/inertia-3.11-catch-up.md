@@ -1,6 +1,7 @@
 # Plan: Catch up with Inertia.js 3.9–3.11 and inertia-laravel 3.5.2–3.7.0
 
-- **Status:** not started. Decisions in [§1](#1-decisions-for-the-maintainer) still need answers.
+- **Status:** Phases 1–4 done on branch `feat/inertia-3.11-catch-up` (one commit per phase, see
+  [Execution notes](#9-execution-notes)). Phase 5 waits for the npm organization (D6).
 - **Written:** 2026-11-05, against `main` at `89d6890`. Baseline: 177 tests pass, 0 fail.
 - **Source notes:** `ai/tmp/inertia-3.11-catch-up.md` (local, not committed). This plan replaces them.
 - **Target release:** 3.0.0 is still unreleased (`3.0.0-beta.1` is on nuget.org), so this work goes into the
@@ -584,4 +585,25 @@ is optional and can come later.
 
 ## 9. Execution notes
 
-(Filled in by the executor: per phase, the branch, commit, test count, and anything that differed from this plan.)
+All phases on one branch, `feat/inertia-3.11-catch-up`, one commit per phase (the maintainer asked for a single
+branch instead of one per phase).
+
+- **Phase 1** (QUERY, shared once props, compatibility): no production code needed; every test passed as
+  predicted. Verified by hand on Kestrel: `[AcceptVerbs("QUERY")]` with `[FromBody]` and `MapMethods(..., "QUERY")`
+  both route and bind. The minimal-API example was left out of the docs because `InertiaResult` is an
+  `IActionResult`, not an `IResult`. 190 tests.
+- **Phase 2** (empty response): `HasStarted` is not used to detect an empty body, because response compression
+  buffers small bodies further out. The middleware wraps the response body feature for Inertia requests
+  (`ResponseWriteTracker`) and records whether bytes were written. Verified on Kestrel with Brotli compression:
+  an empty `Ok()` becomes a 303 to the referer, a compressed `"0"` and a streamed body are left alone. One Phase 1
+  test whose inner action wrote nothing was changed to render a page. 205 tests.
+- **Phase 3** (live props): `throttle` is a `TimeSpan?` (sent as milliseconds). Unlike Laravel, `Append(path)` on a
+  live deferred prop throws, since our `Append(path)` turns merging on (documented in the compatibility
+  differences). `BroadcastPropsAsync` has a public overload taking an `ILogger` for rescued props. 255 tests.
+- **Phase 4** (`Ponango.Inertia.SignalR`): the NuGet build and release steps (pack verification in `build.yml`,
+  pack of both packages in `release.yml`) were done here instead of Phase 5, since they don't depend on npm.
+  The package depends on `Ponango.Inertia` at the same version as a minimum (`>=`), the standard NuGet range,
+  not an exact pin. Channel rules get a `LiveChannelAuthorizationContext` (user, captured values, HttpContext,
+  connection id, scoped services) instead of positional delegate arguments. 23 SignalR tests over real hub
+  connections (TestServer, long polling). To check at the first release: that nuget.org trusted publishing
+  accepts the new package id from `release.yml`.

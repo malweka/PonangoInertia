@@ -26,6 +26,12 @@ public class InertiaContext
     /// <summary>Whether this is a Precognition validation request.</summary>
     public bool IsPrecognition => Headers.IsPrecognition;
 
+    /// <summary>
+    /// The broadcaster connection id the client sent in <c>X-Socket-Id</c> (clients with live props configured), or
+    /// <c>null</c>. Pass it to the broadcaster to skip notifying the connection that caused a change.
+    /// </summary>
+    public string? SocketId => Headers.SocketId;
+
     public IDictionary<string, object> SharedProps { get; } = new Dictionary<string, object>();
 
     public InertiaContext(
@@ -161,6 +167,7 @@ public class InertiaContext
         reqHeaders.TryGetValue("X-Inertia-Infinite-Scroll-Merge-Intent", out var mergeIntent);
         reqHeaders.TryGetValue("Precognition", out var precognition);
         reqHeaders.TryGetValue("Precognition-Validate-Only", out var precognitionValidateOnly);
+        reqHeaders.TryGetValue("X-Socket-Id", out var socketId);
 
         return new InertiaRequestHeaders
         {
@@ -175,7 +182,8 @@ public class InertiaContext
             Purpose = purpose,
             MergeIntent = mergeIntent,
             IsPrecognition = string.Equals(precognition, "true", StringComparison.OrdinalIgnoreCase),
-            PrecognitionValidateOnly = precognitionValidateOnly
+            PrecognitionValidateOnly = precognitionValidateOnly,
+            SocketId = string.IsNullOrEmpty(socketId) ? null : socketId.ToString()
         };
     }
 }

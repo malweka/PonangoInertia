@@ -262,6 +262,9 @@ namespace Ponango.Inertia
             if (resolver.OnceProps.Count > 0)
                 pageModel.OnceProps = resolver.OnceProps;
 
+            if (resolver.LiveProps.Count > 0)
+                pageModel.LiveProps = resolver.LiveProps;
+
             if (resolver.ScrollProps.Count > 0)
                 pageModel.ScrollProps = resolver.ScrollProps;
 

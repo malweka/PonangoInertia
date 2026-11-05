@@ -3,9 +3,9 @@ namespace Ponango.Inertia;
 /// <summary>
 /// A prop that is always included in responses, even during partial reloads
 /// when it is not explicitly requested. Use this for data that must always
-/// be fresh on every response (e.g., auth state).
+/// be fresh on every response (e.g., auth state). Supports live updates (<c>Live(...)</c>).
 /// </summary>
-public class AlwaysProp : IResolvableProp
+public class AlwaysProp : LiveModifiers<AlwaysProp>, IResolvableProp
 {
     private readonly Func<Task<object>> _callback;
 

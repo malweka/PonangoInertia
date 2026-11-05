@@ -17,4 +17,7 @@ public record InertiaRequestHeaders
     public string? MergeIntent { get; init; }
     public bool IsPrecognition { get; init; }
     public string? PrecognitionValidateOnly { get; init; }
+
+    // v3.11: the client's broadcaster connection id (live props)
+    public string? SocketId { get; init; }
 }

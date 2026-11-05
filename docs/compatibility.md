@@ -38,7 +38,7 @@ Legend:
 | `rescuedProps` | ✅ | `Inertia.Defer(..., rescue: true)` |
 | `sharedProps` | ✅ | Sent on every response, partial reloads included. Can be turned off with `ExposeSharedPropKeys = false` |
 | `onceProps` | ✅ | `expiresAt` in Unix milliseconds, custom keys |
-| `liveProps` | ❌ | Live props are not supported yet |
+| `liveProps` | ✅ | `Inertia.Live(...)` and `.Live(...)`; channel types `public`, `private`, `presence`, `encrypted-private`; optional `throttle` |
 | `flash` | ✅ | Top-level field, backed by TempData |
 | `preserveBigIntegers` | ✅ | With `{"$bigint": "…"}` markers |
 
@@ -57,7 +57,7 @@ Legend:
 | `X-Inertia-Infinite-Scroll-Merge-Intent` | ✅ | Scroll props only |
 | `Purpose: prefetch` | ✅ | `InertiaContext.IsPrefetch` |
 | `Precognition` / `Precognition-Validate-Only` | ✅ | `[Precognitive]` |
-| `X-Socket-Id` | ❌ | Sent by clients with live props configured; not read yet |
+| `X-Socket-Id` | ✅ | `InertiaContext.SocketId`, `InertiaController.SocketId` |
 | `X-XSRF-TOKEN` | ⚠️ | Not wired automatically; see [CSRF](#csrf-protection) |
 | `X-Requested-With`, `Accept`, `Content-Type`, `Cache-Control` | ✅ | Handled by ASP.NET Core; nothing adapter-specific needed |
 
@@ -102,6 +102,7 @@ Legend:
 | Shared once props | ✅ | `InertiaContext.ShareOnce(...)` |
 | Combining types (deferred + merge, once on deferred/merge/optional) | ✅ | Fluent modifiers |
 | Nested prop types and dot notation | ✅ | Walks anonymous objects and string-keyed dictionaries; classes, records and lists are sent whole |
+| [Live props](https://inertiajs.com/docs/v3/data-props/live-props) | ✅ | `Inertia.Live(value, on, channel)`, `.Live(...)` on optional, deferred, once and always props, `ILiveEvent`, `Inertia.BroadcastPropsAsync(...)` for event payloads |
 | [Infinite scroll](https://inertiajs.com/docs/v3/data-props/infinite-scroll) | ✅ | `Inertia.Scroll(...)` with `ScrollMetadata.ForPage` / `ForCursor`, `.Defer()` |
 | [Shared data](https://inertiajs.com/docs/v3/data-props/shared-data) | ✅ | `InertiaOptions.SharedData`, `InertiaContext.Share(...)` |
 | [Flash data](https://inertiajs.com/docs/v3/data-props/flash-data) | ✅ | `WithFlash(...)`, `InertiaContext.Flash(...)`; survives redirects |
@@ -150,6 +151,7 @@ adapter support beyond what's listed above.
 | [View transitions](https://inertiajs.com/docs/v3/the-basics/view-transitions) | ➖ | |
 | [Polling](https://inertiajs.com/docs/v3/data-props/polling) | ➖ | Uses partial reloads |
 | `useProp()` | ➖ | Reads a prop with its loading state |
+| Live transports (`echo()`, `pusher()`, `actionCable()`, custom), the `live` router event | ➖ | Needs a broadcaster that sends the events listed in `liveProps` |
 | [Load when visible](https://inertiajs.com/docs/v3/data-props/load-when-visible) (`<WhenVisible>`) | ➖ | Uses partial reloads (dot paths supported) |
 | [Remembering state](https://inertiajs.com/docs/v3/data-props/remembering-state) | ➖ | |
 | [Scroll management](https://inertiajs.com/docs/v3/advanced/scroll-management), [progress indicators](https://inertiajs.com/docs/v3/advanced/progress-indicators), [events](https://inertiajs.com/docs/v3/advanced/events) | ➖ | |
@@ -166,5 +168,7 @@ Where Ponango.Inertia intentionally differs from `inertia-laravel`:
 | Nested props | Walks every array | Walks anonymous objects and string-keyed dictionaries; classes, records and lists are sent whole |
 | Merge modifiers | `append(path)` needs a prior `merge()` on deferred props | `Append(path)` / `Prepend(path)` turn merging on |
 | Once modifiers | `as()` / `until()` need `once()` | `As(...)` / `Until(...)` imply `Once()` |
+| Live event and channel names | Derived from event classes (`broadcastAs()`, `broadcastOn()`) | Strings and `LiveChannel`, or an `ILiveEvent` that names itself and its channels |
+| Merge modifiers on live props | `append(path)` on a live deferred prop is allowed (only `merge()` turns merging on) | Every merge modifier turns merging on, so it throws on a live prop |
 | Errors after a redirect | Any request that redirects with errors in the session | Inertia non-GET requests that redirect with an invalid `ModelState`, or errors stored with `FlashErrors(...)` |
 | Configuration | `config/inertia.php`, middleware class | `AddInertia(options => …)`, `UseInertia()` |

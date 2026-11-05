@@ -125,6 +125,18 @@ Rules:
 - `Fresh()` forces a new value; `expiresAt` is a Unix timestamp in milliseconds or `null`
 - once behavior may also be applied to optional, deferred, and merge props
 
+### Live props
+- `liveProps` maps each live prop's dot path to `{ "listeners": [{ "channel": { "name", "type" }, "events": [...] }] }`,
+  plus `throttle` in milliseconds when set; the field is omitted when no prop is live
+- listeners are grouped by `type:name` in first-seen order, with each event once per channel; a channel given with a
+  `Live(...)` call applies only to that call's events
+- on full visits the entry is emitted even for live props excluded from the response (optional, deferred, once props
+  the client holds)
+- on partial reloads the entry is emitted for a resolved live prop that passes the data/except filters, is an always
+  prop, or is the child of a resolved parent; a rescued prop emits none
+- merge props cannot be live
+- `X-Socket-Id` is exposed as `InertiaContext.SocketId`
+
 ### MergeProp
 - contributes merge metadata (not for props listed in `X-Inertia-Reset`, nor for props excluded by a partial reload)
 - supports append, prepend, and deep merge, at the root or at nested paths (`prop.path` labels)

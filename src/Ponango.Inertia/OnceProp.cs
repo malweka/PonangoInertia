@@ -4,9 +4,9 @@ namespace Ponango.Inertia;
 /// A prop that is resolved on the first visit and cached by the client.
 /// On subsequent visits, the client sends the X-Inertia-Except-Once-Props header
 /// with already-loaded keys, and the server skips resolving them.
-/// Optionally supports an expiration time after which the client re-fetches.
+/// Optionally supports an expiration time after which the client re-fetches, and live updates (<c>Live(...)</c>).
 /// </summary>
-public class OnceProp : IResolvableProp, IOnceableProp
+public class OnceProp : LiveModifiers<OnceProp>, IResolvableProp, IOnceableProp
 {
     private readonly Func<Task<object>> _callback;
     private readonly OnceBehavior _once = new() { ShouldResolveOnce = true };

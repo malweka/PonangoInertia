@@ -95,6 +95,8 @@ Ponango.Inertia implements the server side of the Inertia v3 protocol for ASP.NE
   (root or nested paths, match fields), `Once` (expiry, custom keys, forced refresh), `Scroll` (page numbers or
   cursors), plus lazy delegate props. For example `Inertia.Defer(...).Once()` or
   `Inertia.Defer(...).DeepMerge()`.
+- **Live props:** props that refresh when a broadcast event arrives, `Inertia.Live(...)` or `.Live(...)`, with
+  `BroadcastPropsAsync` for event payloads and `X-Socket-Id` to skip the sender.
 - **Nested props and dot notation:** wrappers inside nested objects, reloadable with
   `only: ['auth.notifications']`.
 - **Shared data and flash:** app-wide props through options or per request, `ShareOnce`, and flash data in
@@ -145,6 +147,7 @@ result.With("report", Inertia.Defer(() => BuildReport(), group: "dashboard", res
 result.With("stats", Inertia.Defer(() => BuildStats()).Once());
 result.With("plans", Inertia.Once(() => GetPlans()).Until(TimeSpan.FromHours(1)));
 result.With("feed", Inertia.Merge(() => feed).Append("data", matchOn: "id"));
+result.With("order", Inertia.Live(() => order, "order.updated", LiveChannel.Private($"orders.{order.Id}")));
 result.With("posts", Inertia.Scroll(
     () => page,
     ScrollMetadata.ForPage(page.CurrentPage, page.PreviousPage, page.NextPage)));

@@ -14,6 +14,9 @@ namespace Ponango.Inertia
 
         protected bool IsPrecognition => InertiaContext.IsPrecognition;
 
+        /// <summary>The client's broadcaster connection id (<c>X-Socket-Id</c>), or <c>null</c>.</summary>
+        protected string? SocketId => InertiaContext.SocketId;
+
         public override RedirectResult Redirect(string url)
         {
             if (string.IsNullOrEmpty(url)) throw new ArgumentException(nameof(url));

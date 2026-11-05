@@ -278,6 +278,61 @@ result.With("categories", Inertia.Optional(() => _categories.All()).Once());    
 
 A deferred prop that the client already remembers is not announced in `deferredProps` again.
 
+### Live props
+
+A live prop refreshes itself when a broadcast event arrives (Inertia.js 3.11). The page object's `liveProps`
+lists, per prop path, the channels and events to listen to. When an event arrives, the client either reloads
+the prop with a partial reload, or takes its new value from the event payload.
+
+```csharp
+result.With("order", Inertia.Live(() => _orders.Find(id), "order.updated", LiveChannel.Private($"orders.{id}")));
+result.With("activity", Inertia.Defer(() => _activity.For(id)).Live("activity.logged", $"orders.{id}"));
+result.With("stats", Inertia.Always(() => _stats.Today()).Live(new[] { "order.created", "order.cancelled" }, "dashboard",
+    throttle: TimeSpan.FromSeconds(4)));
+```
+
+- `Inertia.Live(value, on, channel)` creates a live prop; `.Live(...)` makes an optional, deferred, once or always
+  prop live and keeps its other behavior. Calls add up, and `throttle` keeps the last value given.
+- A string channel is public. Use `LiveChannel.Private(...)`, `LiveChannel.Presence(...)` or
+  `LiveChannel.EncryptedPrivate(...)` for the others. A Laravel-style prefix (`private-orders.1`) is removed,
+  since the type is sent separately.
+- Merge props cannot be live: `Live(...)` on a merging prop, or a merge modifier on a live prop, throws.
+- A deferred or optional live prop still announces its listeners on the full visit, so the client listens before
+  the prop is loaded. On a partial reload a live prop's entry is sent when the prop is selected, is an always
+  prop, or belongs to a selected parent.
+
+Instead of repeating event and channel names, describe an event once with `ILiveEvent`, and use the same type when
+you broadcast it:
+
+```csharp
+public sealed class OrderUpdated(Order order) : ILiveEvent
+{
+    public string EventName => "order.updated";
+    public IEnumerable<LiveChannel> Channels => new[] { LiveChannel.Private($"orders.{order.Id}") };
+}
+
+result.With("order", Inertia.Live(() => order, new OrderUpdated(order)));
+```
+
+To send values in the event instead of letting every client reload, build the payload with
+`Inertia.BroadcastPropsAsync`:
+
+```csharp
+var payload = await Inertia.BroadcastPropsAsync(new { order }, @event: "order.updated");
+// { "__inertia": { "props": { "order": { ... } }, "event": "order.updated" } }
+```
+
+Values are resolved like page props, rescued props are left out, and keys are prop paths (send a nested live prop
+as `["auth.order"] = ...`). Every subscriber receives the same payload, so only send values that are the same for
+everyone; let user-specific props reload instead.
+
+The client sends its broadcaster connection id in `X-Socket-Id`. Read it with `InertiaContext.SocketId` (or
+`SocketId` in an `InertiaController`) to skip notifying the connection that caused a change.
+
+Live props need a broadcaster and a client transport. Ponango.Inertia emits the metadata and builds payloads, and
+works with any broadcaster: with a Pusher-protocol service (Pusher, Ably, Soketi) use the client's built-in
+`pusher()` transport and the service's .NET SDK; for SignalR, use `Ponango.Inertia.SignalR`.
+
 ## Partial reloads
 
 The adapter supports:

@@ -56,6 +56,10 @@ namespace Ponango.Inertia
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public Dictionary<string, object>? OnceProps { get; set; }
 
+        // Live props (v3.11 - prop path -> the channels and events that refresh it, and an optional throttle)
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Dictionary<string, object>? LiveProps { get; set; }
+
         // Flash data for this response (v3 - only serialized when present; the client exposes it as
         // page.flash and does not persist it in history state)
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

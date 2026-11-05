@@ -35,12 +35,19 @@ The `Inertia` static class should expose helper constructors for:
 - `DeepMerge`
 - `Once`
 - `Scroll`
+- `Live` (value, events and channels, or an `ILiveEvent`, with an optional throttle)
+- `BroadcastPropsAsync` (the `{ "__inertia": { "props": ... } }` payload of a broadcast event)
 
 Prop wrappers should be composable through fluent modifiers:
 - `DeferredProp`: `Merge`, `DeepMerge`, `Append`, `Prepend`, `MatchingOn`, `Once`, `As`, `Fresh`, `Until`, `Rescue`
 - `MergeProp`: `Append`, `Prepend`, `DeepMerge`, `MatchingOn`, `Once`, `As`, `Fresh`, `Until`
 - `OptionalProp`: `Once`, `As`, `Fresh`, `Until`
 - `OnceProp`: `As`, `Fresh`, `Until`
+- `Live` on `LiveProp`, `OptionalProp`, `DeferredProp`, `OnceProp` and `AlwaysProp` (shared `LiveModifiers<TSelf>`);
+  it throws on a merging prop, and merge modifiers throw on a live prop
+
+`LiveChannel` (name and `LiveChannelType`, a string converts to a public channel) and `ILiveEvent` describe what a
+live prop listens to.
 
 `InertiaContext` should expose `Share(...)` and `ShareOnce(...)`, and `FlashErrors(ModelStateDictionary, bag)` /
 `FlashErrors(IDictionary<string, string>, bag)` to keep validation errors for the next rendered page.
@@ -61,6 +68,7 @@ interfaces) are internal. Prop types defined outside the library are not a suppo
   - `IsInertia`
   - `IsPrefetch`
   - `IsPrecognition`
+  - `SocketId`
 
 Default component derivation should support route-based naming, including area/controller/action when available.
 

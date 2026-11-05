@@ -52,6 +52,13 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 - Empty responses redirect back, as in the reference adapter: an Inertia request answered with an empty `200`
   becomes a redirect to the same-host `Referer` (else the app root), `303` after non-GET requests. A body of any
   length, a streamed response and other status codes are left alone.
+- Live props (Inertia.js 3.11, inertia-laravel 3.7): `Inertia.Live(value, on, channel)` and a `.Live(...)` modifier
+  on optional, deferred, once and always props emit the new `liveProps` page field, so the client refreshes the
+  prop when a broadcast event arrives. Channels are `LiveChannel` values (public, private, presence, encrypted
+  private); `ILiveEvent` describes an event and its channels once. Merge props cannot be live.
+- `Inertia.BroadcastPropsAsync(props, event, socketId)` builds the `{ "__inertia": { "props": ... } }` payload of a
+  broadcast event that carries new prop values.
+- `InertiaContext.SocketId` and `InertiaController.SocketId` expose the client's `X-Socket-Id` header.
 
 ### Changed
 
@@ -107,8 +114,9 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
   as in the reference adapter. They used to be emitted as literal `"auth.user"` keys.
 - `Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter, and
   `DeferredProp`, `MergeProp` and `OptionalProp` now inherit their fluent modifiers from the new
-  `MergeModifiers<TSelf>` / `OnceModifiers<TSelf>` base classes. Source compatible, but code compiled against
-  2.x must be recompiled.
+  `MergeModifiers<TSelf>` / `OnceModifiers<TSelf>` base classes (themselves on top of `LiveModifiers<TSelf>`, which
+  `OnceProp` and `AlwaysProp` now derive from too). Source compatible, but code compiled against 2.x must be
+  recompiled.
 
 ## 2.1.0
 

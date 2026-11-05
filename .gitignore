@@ -375,3 +375,6 @@ appsettings.*.Local.json
 nuget.config
 NuGet.Config
 .claude/settings.local.json
+
+# Local working notes (session hand-off context), never committed
+ai/tmp/

@@ -333,8 +333,9 @@ Live props need a broadcaster and a client transport. Ponango.Inertia emits the 
 works with any broadcaster:
 
 - **SignalR:** the `Ponango.Inertia.SignalR` package provides the hub (with per-channel authorization) and an
-  `IInertiaBroadcaster`; the `@ponango/inertia-signalr` client transport connects to it. See the
-  [package README](../src/Ponango.Inertia.SignalR/README.md).
+  `IInertiaBroadcaster`; the [`@ponango/inertia-signalr`](../clients/inertia-signalr/README.md) client transport
+  connects to it. See the [package README](../src/Ponango.Inertia.SignalR/README.md) and the
+  [LiveProps sample](../samples/LiveProps/README.md).
 - **A Pusher-protocol service** (Pusher, Ably, Soketi): use the client's built-in `pusher()` transport, and send
   events with the service's .NET SDK and a `BroadcastPropsAsync` payload.
 

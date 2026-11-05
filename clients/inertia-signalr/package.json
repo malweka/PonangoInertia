@@ -1,0 +1,51 @@
+{
+  "name": "@ponango/inertia-signalr",
+  "version": "0.0.0-dev",
+  "description": "SignalR transport for Inertia.js live props, for ASP.NET Core apps using Ponango.Inertia.SignalR.",
+  "keywords": [
+    "inertia",
+    "inertiajs",
+    "signalr",
+    "live",
+    "realtime",
+    "aspnetcore"
+  ],
+  "license": "MIT",
+  "author": "Emmanuel Hameyie",
+  "homepage": "https://github.com/malweka/PonangoInertia/tree/main/clients/inertia-signalr#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/malweka/PonangoInertia.git",
+    "directory": "clients/inertia-signalr"
+  },
+  "bugs": {
+    "url": "https://github.com/malweka/PonangoInertia/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "peerDependencies": {
+    "@inertiajs/core": "^3.11.0"
+  },
+  "devDependencies": {
+    "@inertiajs/core": "^3.11.0",
+    "@microsoft/signalr": "^10.0.11",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

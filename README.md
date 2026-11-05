@@ -97,7 +97,9 @@ Ponango.Inertia implements the server side of the Inertia v3 protocol for ASP.NE
   `Inertia.Defer(...).DeepMerge()`.
 - **Live props:** props that refresh when a broadcast event arrives, `Inertia.Live(...)` or `.Live(...)`, with
   `BroadcastPropsAsync` for event payloads and `X-Socket-Id` to skip the sender. The
-  [`Ponango.Inertia.SignalR`](./src/Ponango.Inertia.SignalR/README.md) package carries the events over SignalR.
+  [`Ponango.Inertia.SignalR`](./src/Ponango.Inertia.SignalR/README.md) package and the
+  [`@ponango/inertia-signalr`](./clients/inertia-signalr/README.md) client transport carry the events over SignalR
+  ([sample](./samples/LiveProps/README.md)).
 - **Nested props and dot notation:** wrappers inside nested objects, reloadable with
   `only: ['auth.notifications']`.
 - **Shared data and flash:** app-wide props through options or per request, `ShareOnce`, and flash data in

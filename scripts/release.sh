@@ -3,7 +3,20 @@
 # Ponango.Inertia release driver.
 #
 #   ./scripts/release.sh cut     2.1.0    -> create + push release/2.1.0  (CI builds a candidate)
-#   ./scripts/release.sh publish 2.1.0    -> create + push tag v2.1.0     (CI publishes to nuget.org)
+#   ./scripts/release.sh publish 2.1.0    -> create + push tag v2.1.0     (CI publishes to nuget.org and npm)
+#
+# A tag publishes all three packages with one version: Ponango.Inertia and Ponango.Inertia.SignalR to nuget.org,
+# @ponango/inertia-signalr to npm (pre-releases under the `next` dist-tag).
+#
+# ONE-TIME npm setup: npm trusted publishing can only be configured on a package that already exists. Before the
+# first `publish`, once the candidate is green, publish that version by hand from the release branch:
+#
+#     cd clients/inertia-signalr && npm ci && npm version 3.0.0-beta.2 --no-git-tag-version
+#     npm publish --access public --tag next      # --tag next for a pre-release; needs `npm login` to @ponango
+#     git checkout package.json package-lock.json
+#
+# then on npmjs.com, package Settings > Trusted publishing: GitHub Actions, repository malweka/PonangoInertia,
+# workflow release.yml. The tag's workflow then skips the version already on npm and publishes later ones itself.
 #
 # Pre-releases work the same way with a SemVer suffix: `cut 3.0.0-beta.1` pushes release/3.0.0-beta.1,
 # `publish 3.0.0-beta.1` pushes tag v3.0.0-beta.1, and CI marks the GitHub Release as a pre-release.
@@ -128,7 +141,7 @@ publish)
     git push origin "$TAG"
 
     echo
-    echo "Pushed $TAG. CI is publishing to nuget.org and creating the GitHub Release."
+    echo "Pushed $TAG. CI is publishing to nuget.org and npm and creating the GitHub Release."
     echo "Watch it:   gh run watch"
     ;;
 

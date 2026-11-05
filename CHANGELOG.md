@@ -63,6 +63,10 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
   authorization rules (`options.Channel("orders.{id}", ...)`), `MapInertiaLive()` for the hub, and
   `IInertiaBroadcaster` to send events with or without prop values. It ships with the same version as
   `Ponango.Inertia`.
+- New npm package `@ponango/inertia-signalr`: the client transport for `Ponango.Inertia.SignalR`
+  (`createInertiaApp({ live: signalR({ connection }) })`). It joins and leaves channels through the hub, and
+  rejoins them after a reconnect. Same version as the NuGet packages; pre-releases use the `next` dist-tag.
+- `samples/LiveProps`: an ASP.NET Core + Vue app with live props over SignalR, checked end to end in CI.
 
 ### Changed
 

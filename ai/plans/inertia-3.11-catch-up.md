@@ -1,7 +1,8 @@
 # Plan: Catch up with Inertia.js 3.9–3.11 and inertia-laravel 3.5.2–3.7.0
 
-- **Status:** Phases 1–4 done on branch `feat/inertia-3.11-catch-up` (one commit per phase, see
-  [Execution notes](#9-execution-notes)). Phase 5 waits for the npm organization (D6).
+- **Status:** all five phases done on branch `feat/inertia-3.11-catch-up` (one commit per phase, see
+  [Execution notes](#9-execution-notes)). The npm organization `ponango` exists (D6); the first npm publish is
+  manual (see `scripts/release.sh`).
 - **Written:** 2026-11-05, against `main` at `89d6890`. Baseline: 177 tests pass, 0 fail.
 - **Source notes:** `ai/tmp/inertia-3.11-catch-up.md` (local, not committed). This plan replaces them.
 - **Target release:** 3.0.0 is still unreleased (`3.0.0-beta.1` is on nuget.org), so this work goes into the
@@ -607,3 +608,17 @@ branch instead of one per phase).
   connection id, scoped services) instead of positional delegate arguments. 23 SignalR tests over real hub
   connections (TestServer, long polling). To check at the first release: that nuget.org trusted publishing
   accepts the new package id from `release.yml`.
+- **Phase 5** (`@ponango/inertia-signalr`): built with plain `tsc` instead of `tsup` (one file, nothing to bundle;
+  TypeScript 7 is the current release). The transport reports the first connection too, because Inertia's live
+  engine only treats a `connected` status as a reconnect after an earlier one; during a reconnect it holds the
+  status until every channel is joined again. It polls the state when it did not start the connection itself
+  (`start: false`, or a connection already `Connecting`), since `HubConnection` has no "connected" event. 25 vitest
+  tests. The sample (`samples/LiveProps`, ASP.NET Core + Vue + Vite) is checked end to end by
+  `ClientApp/e2e/run.mjs` in headless Edge (Chrome in CI): reload on event, value in event without a request,
+  private channel refusal, `X-Socket-Id` sender exclusion, and rejoin plus refresh after a server restart, 6/6.
+  Disabling the rejoin makes the restart check fail, so it is not vacuous. Found while writing the sample: inside
+  an `InertiaController`, `Inertia.Live(...)` (like `Inertia.Defer(...)`) resolves to the controller's obsolete
+  `Inertia<T>(...)` method; the sample and the SignalR README use `using Props = Ponango.Inertia.Inertia;`. Not
+  fixed here: it predates this work and needs an API decision. Release: `release.yml` packs the npm tarball on
+  every run, publishes it on a tag (skipping a version already on npm), and attaches it to the GitHub Release;
+  `build.yml` gained `client` and `e2e` jobs.

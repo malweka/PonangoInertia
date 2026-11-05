@@ -70,6 +70,16 @@ dotnet pack src/Ponango.Inertia.SignalR/Ponango.Inertia.SignalR.csproj -c Releas
 
 The solution `src/Ponango.Inertia/Ponango.Inertia.sln` holds both libraries and both test projects.
 
+```bash
+# The @ponango/inertia-signalr client transport (TypeScript, vitest)
+cd clients/inertia-signalr && npm ci && npm run typecheck && npm test && npm run build
+
+# Live props end to end: the LiveProps sample in headless Edge (BROWSER_CHANNEL=chrome for Chrome)
+cd samples/LiveProps/ClientApp && npm ci && npm run build && cd .. && dotnet build && cd ClientApp && npm run e2e
+```
+
+The sample links the transport from `clients/inertia-signalr`, so build the transport before the sample.
+
 If you are only validating behavior, prefer the test command over ad hoc manual checking.
 
 ## Current Public API
@@ -233,6 +243,18 @@ events over SignalR:
 - `InertiaLiveProtocol` holds the names shared with the `@ponango/inertia-signalr` client transport: change both
   packages together
 
+### @ponango/inertia-signalr
+
+`clients/inertia-signalr/`, the npm package (same version as the NuGet packages, set by the release workflow; the
+repo keeps `0.0.0-dev`). `signalR({ connection })` returns Inertia's `LiveOptions` with a `LiveChannelTransport`:
+it joins each channel once through `Subscribe(type, name)` (ref-counted), leaves it with `Unsubscribe`, routes
+`inertia(channelKey, payload)` to the channel's listeners, reports the connection status, and joins every channel
+again after a reconnect before reporting it. `@inertiajs/core` is a peer dependency used only for types; the
+SignalR connection is typed by shape. `protocol` in `src/index.ts` mirrors `InertiaLiveProtocol`.
+
+`samples/LiveProps/` is an ASP.NET Core + Vue app using all three packages; `ClientApp/e2e/run.mjs` checks it in a
+headless browser, and CI runs it.
+
 ### InertiaContext
 
 `src/Ponango.Inertia/InertiaContext.cs`
@@ -364,6 +386,8 @@ Current coverage includes:
 - empty responses redirected back (`EmptyResponseTests`)
 - live props and broadcast payloads (`LivePropTests`, `BroadcastPropsTests`)
 - the SignalR hub and broadcaster, in `tests/Ponango.Inertia.SignalR.Tests/` (`InertiaLiveHubTests`)
+- the client transport, in `clients/inertia-signalr/test/` (vitest, against a fake hub connection)
+- live props end to end, in `samples/LiveProps/ClientApp/e2e/run.mjs`
 - options and conveniences (`OptionsAndConveniencesTests`)
 - external and fragment redirects
 - prefetch detection

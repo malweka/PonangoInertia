@@ -35,10 +35,12 @@ public sealed class OrderUpdated(Order order) : ILiveEvent
     public IEnumerable<LiveChannel> Channels => new[] { LiveChannel.Private($"orders.{order.Id}") };
 }
 
+// In an InertiaController, a bare `Inertia` is the controller's obsolete Inertia(...) method, so alias the class:
+// using Props = Ponango.Inertia.Inertia;
 public IActionResult Show(int id)
 {
     var order = _orders.Find(id);
-    return Render("Orders/Show", new { order = Inertia.Live(() => _orders.Find(id), new OrderUpdated(order)) });
+    return Render("Orders/Show", new { order = Props.Live(() => _orders.Find(id), new OrderUpdated(order)) });
 }
 ```
 
@@ -83,6 +85,10 @@ or Azure SignalR Service. `AddInertiaLive` returns the SignalR builder for this.
 
 ## Client
 
+```sh
+npm install @ponango/inertia-signalr @microsoft/signalr
+```
+
 ```js
 import { HubConnectionBuilder } from '@microsoft/signalr'
 import { signalR } from '@ponango/inertia-signalr'
@@ -95,8 +101,9 @@ createInertiaApp({
 })
 ```
 
-The `@ponango/inertia-signalr` npm package is not published yet. Until it is, a custom transport can implement
-the hub contract below.
+See the [`@ponango/inertia-signalr` README](https://github.com/malweka/PonangoInertia/tree/main/clients/inertia-signalr)
+for its options. A working app is in
+[samples/LiveProps](https://github.com/malweka/PonangoInertia/tree/main/samples/LiveProps).
 
 ## Hub contract
 

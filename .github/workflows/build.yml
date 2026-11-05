@@ -48,3 +48,62 @@ jobs:
         run: |
           dotnet pack src/Ponango.Inertia/Ponango.Inertia.csproj -c Release --no-build --nologo -o /tmp/pack-check
           dotnet pack src/Ponango.Inertia.SignalR/Ponango.Inertia.SignalR.csproj -c Release --no-build --nologo -o /tmp/pack-check
+
+  # The @ponango/inertia-signalr client transport: type check, unit tests, build, and the files npm would publish.
+  client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clients/inertia-signalr
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: clients/inertia-signalr/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Package contents
+        run: npm pack --dry-run
+
+  # Live props end to end: the LiveProps sample server, the real Inertia client with the SignalR transport, and a
+  # headless Chrome (samples/LiveProps/ClientApp/e2e/run.mjs).
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build the client transport
+        working-directory: clients/inertia-signalr
+        run: npm ci && npm run build
+
+      - name: Build the sample front end
+        working-directory: samples/LiveProps/ClientApp
+        run: npm ci && npm run build
+
+      - name: Build the sample server
+        run: dotnet build samples/LiveProps/LiveProps.csproj --nologo
+
+      - name: Run the end-to-end check
+        working-directory: samples/LiveProps/ClientApp
+        env:
+          BROWSER_CHANNEL: chrome
+        run: npm run e2e

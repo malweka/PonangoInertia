@@ -5,9 +5,9 @@ field by field.
 
 | | Version checked |
 |---|---|
-| Inertia.js client (`@inertiajs/vue3`, `@inertiajs/react`, `@inertiajs/svelte`) | **3.8.0** (2026-10-01) |
-| Reference server adapter (`inertiajs/inertia-laravel`) | **3.5.1** |
-| Protocol specification | [inertiajs.com/docs/v3/core-concepts/the-protocol](https://inertiajs.com/docs/v3/core-concepts/the-protocol), checked 2026-10-06 |
+| Inertia.js client (`@inertiajs/vue3`, `@inertiajs/react`, `@inertiajs/svelte`) | **3.11.0** (2026-11-02) |
+| Reference server adapter (`inertiajs/inertia-laravel`) | **3.7.0** (2026-11-02) |
+| Protocol specification | [inertiajs.com/docs/v3/core-concepts/the-protocol](https://inertiajs.com/docs/v3/core-concepts/the-protocol), checked 2026-11-05 |
 
 Legend:
 
@@ -38,6 +38,7 @@ Legend:
 | `rescuedProps` | ✅ | `Inertia.Defer(..., rescue: true)` |
 | `sharedProps` | ✅ | Sent on every response, partial reloads included. Can be turned off with `ExposeSharedPropKeys = false` |
 | `onceProps` | ✅ | `expiresAt` in Unix milliseconds, custom keys |
+| `liveProps` | ❌ | Live props are not supported yet |
 | `flash` | ✅ | Top-level field, backed by TempData |
 | `preserveBigIntegers` | ✅ | With `{"$bigint": "…"}` markers |
 
@@ -56,6 +57,7 @@ Legend:
 | `X-Inertia-Infinite-Scroll-Merge-Intent` | ✅ | Scroll props only |
 | `Purpose: prefetch` | ✅ | `InertiaContext.IsPrefetch` |
 | `Precognition` / `Precognition-Validate-Only` | ✅ | `[Precognitive]` |
+| `X-Socket-Id` | ❌ | Sent by clients with live props configured; not read yet |
 | `X-XSRF-TOKEN` | ⚠️ | Not wired automatically; see [CSRF](#csrf-protection) |
 | `X-Requested-With`, `Accept`, `Content-Type`, `Cache-Control` | ✅ | Handled by ASP.NET Core; nothing adapter-specific needed |
 
@@ -68,7 +70,7 @@ Legend:
 | `409` + `X-Inertia-Location` (asset version mismatch) | ✅ | Also sends `X-Inertia-Version` |
 | `409` + `X-Inertia-Location` (external redirect) | ✅ | `Location(url)`, or intercepted external redirects |
 | `409` + `X-Inertia-Redirect` (redirect to a `#fragment` URL) | ✅ | Not applied to prefetch requests |
-| `302` → `303` after non-GET requests | ✅ | Applied to every non-GET method (the spec requires it for PUT/PATCH/DELETE) |
+| `302` → `303` after non-GET requests | ✅ | Applied to every non-GET method, `QUERY` included (the spec requires it for PUT, PATCH, DELETE and QUERY) |
 | `204` + `Precognition-Success: true` | ✅ | |
 | `422` with errors (Precognition) | ✅ | One message per field |
 | `Vary: Precognition` | ✅ | On every response from a `[Precognitive]` action |
@@ -123,7 +125,7 @@ Legend:
 | [History encryption](https://inertiajs.com/docs/v3/security/history-encryption) | ✅ | Global option and per response; clear history |
 | [CSRF protection](https://inertiajs.com/docs/v3/security/csrf-protection) | ⚠️ | Use ASP.NET Core antiforgery: issue an `XSRF-TOKEN` cookie and accept the `X-XSRF-TOKEN` header (`AddAntiforgery(o => o.HeaderName = "X-XSRF-TOKEN")`). The adapter does not set this up |
 | [Prefetching](https://inertiajs.com/docs/v3/data-props/prefetching) | ✅ | Normal pipeline; `IsPrefetch` to skip side effects |
-| [Instant visits](https://inertiajs.com/docs/v3/the-basics/instant-visits) | ✅ | Relies on `sharedProps`, which is emitted by default |
+| [Instant visits](https://inertiajs.com/docs/v3/the-basics/instant-visits) | ✅ | Relies on `sharedProps`, which is emitted by default. Shared once props are listed in both `sharedProps` and `onceProps` |
 | [Error handling](https://inertiajs.com/docs/v3/advanced/error-handling) (custom error pages) | ⚠️ | No helper like `handleExceptionsUsing`; render an Inertia page from your own exception or status-code handler |
 | Empty response → redirect back | ❌ | Return an explicit redirect, such as `Back()` |
 | [Server-side rendering](https://inertiajs.com/docs/v3/advanced/server-side-rendering) | ❌ | Pages render client-side only |
@@ -140,12 +142,14 @@ adapter support beyond what's listed above.
 | [Pages](https://inertiajs.com/docs/v3/the-basics/pages), [layouts](https://inertiajs.com/docs/v3/the-basics/layouts), layout props | ➖ | |
 | [Title & meta](https://inertiajs.com/docs/v3/the-basics/title-and-meta) (`<Head>`) | ➖ | Head elements in your Razor layout use the `data-inertia` attribute |
 | [Links](https://inertiajs.com/docs/v3/the-basics/links) and [manual visits](https://inertiajs.com/docs/v3/the-basics/manual-visits) | ➖ | |
+| `QUERY` visits (`router.query`, `<Link method="query">`, `<Form method="query">`, `form.query()`) | ➖ | Route the `QUERY` method and bind the body; see [QUERY requests](./advanced-topics.md#query-requests) |
 | [Forms](https://inertiajs.com/docs/v3/the-basics/forms) (`useForm`, `<Form>`) | ➖ | Validation errors in `props.errors` |
 | [File uploads](https://inertiajs.com/docs/v3/the-basics/file-uploads) | ➖ | Standard multipart model binding |
 | [HTTP requests](https://inertiajs.com/docs/v3/the-basics/http-requests) (`useHttp`) | ➖ | Plain JSON endpoints |
 | [Optimistic updates](https://inertiajs.com/docs/v3/the-basics/optimistic-updates) | ➖ | |
 | [View transitions](https://inertiajs.com/docs/v3/the-basics/view-transitions) | ➖ | |
 | [Polling](https://inertiajs.com/docs/v3/data-props/polling) | ➖ | Uses partial reloads |
+| `useProp()` | ➖ | Reads a prop with its loading state |
 | [Load when visible](https://inertiajs.com/docs/v3/data-props/load-when-visible) (`<WhenVisible>`) | ➖ | Uses partial reloads (dot paths supported) |
 | [Remembering state](https://inertiajs.com/docs/v3/data-props/remembering-state) | ➖ | |
 | [Scroll management](https://inertiajs.com/docs/v3/advanced/scroll-management), [progress indicators](https://inertiajs.com/docs/v3/advanced/progress-indicators), [events](https://inertiajs.com/docs/v3/advanced/events) | ➖ | |
@@ -158,7 +162,7 @@ Where Ponango.Inertia intentionally differs from `inertia-laravel`:
 | Area | Laravel | Ponango.Inertia |
 |---|---|---|
 | External redirects | Only through `Inertia::location()` | Also detected automatically by the middleware (other host or port) and always answered with `X-Inertia-Location` |
-| `302` → `303` | PUT, PATCH, DELETE | Every non-GET method (equivalent for browsers) |
+| `302` → `303` | PUT, PATCH, DELETE, QUERY | Every non-GET method (equivalent for browsers) |
 | Nested props | Walks every array | Walks anonymous objects and string-keyed dictionaries; classes, records and lists are sent whole |
 | Merge modifiers | `append(path)` needs a prior `merge()` on deferred props | `Append(path)` / `Prepend(path)` turn merging on |
 | Once modifiers | `as()` / `until()` need `once()` | `As(...)` / `Until(...)` imply `Once()` |

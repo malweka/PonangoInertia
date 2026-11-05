@@ -32,6 +32,19 @@ public class ValidationErrorRedirectTests
     }
 
     [Fact]
+    public async Task Invalid_model_state_on_inertia_query_redirect_is_shown_on_next_page()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        test.HttpContext.Request.Method = "QUERY";
+        TestHelpers.AsInertia(test.HttpContext);
+
+        RunFilter(test, Invalid("q", "The search term is required"), new RedirectResult("/products"));
+
+        using var document = await RenderNextPageAsync(test);
+        Assert.Equal("The search term is required", Errors(document).GetProperty("q").GetString());
+    }
+
+    [Fact]
     public async Task Redirect_to_action_result_stores_errors()
     {
         using var test = TestInfrastructure.CreateContext();

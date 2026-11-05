@@ -516,6 +516,35 @@ Requirements and notes:
   action parameter or model property like any other number.
 - The `useHttp` hook does not handle `BigInt`; convert those values to strings before sending them.
 
+## QUERY requests
+
+Inertia.js 3.10 added the `QUERY` HTTP method: safe and idempotent like `GET`, but the data goes in the request
+body, so long search filters don't have to fit in a URL. The client sends it from `router.query(...)`,
+`<Link method="query">`, `<Form method="query">`, `form.query()` and `http.query()`. A page rendered by a `QUERY`
+visit remembers its body, so partial reloads, deferred props, polling and infinite scroll send it again.
+
+Kestrel and ASP.NET Core routing accept `QUERY` like any other method. Route it explicitly:
+
+```csharp
+[AcceptVerbs("QUERY")]
+[Route("/products/search")]
+public IActionResult Search([FromBody] ProductSearch search)
+    => _inertia.Render("Products/Index", new { search, results = _products.Find(search) });
+```
+
+Minimal API endpoints use `app.MapMethods("/products/search", new[] { "QUERY" }, ...)`.
+
+- Bind the body with `[FromBody]` (the client sends JSON) or `[FromForm]` when the form contains files.
+- Antiforgery: `AutoValidateAntiforgeryToken` only skips `GET`, `HEAD`, `OPTIONS` and `TRACE`, so `QUERY`
+  requests are validated like a `POST`. Configure the `X-XSRF-TOKEN` header as described in
+  [CSRF protection](./compatibility.md#server-features). Since client 3.9.1 the header is only sent to
+  same-origin URLs.
+- For the protocol `QUERY` counts as a non-GET request: a redirect becomes `303`, and validation errors of an
+  invalid `ModelState` are kept across the redirect. The asset version is only checked on `GET`, as in the
+  reference adapter.
+- IIS request filtering and some proxies only allow listed methods. If `QUERY` requests fail before reaching the
+  app, allow the method there.
+
 ## External redirects
 
 Use `Location(...)` for an external navigation response:
@@ -532,7 +561,7 @@ The middleware also rewrites redirects returned during Inertia requests:
 |---|---|
 | External URL (another host or port), with or without a fragment | `409` + `X-Inertia-Location` (the client does a full `window.location` visit) |
 | Internal URL containing a `#fragment` (not a prefetch) | `409` + `X-Inertia-Redirect` (the client makes a fresh Inertia visit and keeps the fragment) |
-| Any other `302` after a non-GET request | `303` |
+| Any other `302` after a non-GET request (`QUERY` included) | `303` |
 
 ## Asset version mismatches
 

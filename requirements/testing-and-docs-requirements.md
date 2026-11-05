@@ -21,6 +21,7 @@ Coverage should include:
 - infinite scroll metadata
 - composed prop types (deferred/merge/once/rescue) and nested dot-notation paths
 - big integer markers
+- `QUERY` requests (303 conversion, errors across redirects, no asset version check)
 - public API ergonomics
 
 When protocol behavior changes, corresponding tests should be added or updated in the same change.

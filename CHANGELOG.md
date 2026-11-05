@@ -10,7 +10,7 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 
 ### Added
 
-- `docs/compatibility.md`: feature-by-feature compatibility tables against Inertia.js 3.8.0, and a README
+- `docs/compatibility.md`: feature-by-feature compatibility tables against the current Inertia.js release, and a README
   overview of Inertia and of what the adapter provides.
 - Version-mismatch `409` responses now echo the current asset version in `X-Inertia-Version`.
 - Precognitive actions add `Precognition` to the `Vary` header on every response.
@@ -45,6 +45,10 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 - `Inertia.Scroll(...)` / `ScrollProp` for infinite scroll, matching `Inertia::scroll()`: merges the array under a
   wrapper key (`mergeProps: ["posts.data"]`), supports page numbers and cursors (`ScrollMetadata.ForPage`,
   `ScrollMetadata.ForCursor`), `MatchingOn`, and `.Defer()`.
+
+- `QUERY` requests (Inertia.js 3.10) are covered by tests and documented: redirects become `303`, validation
+  errors are kept across the redirect, and the asset version is only checked on `GET`.
+- `docs/compatibility.md` is checked against Inertia.js 3.11.0 and inertia-laravel 3.7.0.
 
 ### Changed
 

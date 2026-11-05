@@ -331,6 +331,7 @@ Current coverage includes:
 - flash data at page level (`FlashTests`)
 - validation errors across redirects and `Back()` (`ValidationErrorRedirectTests`)
 - big integers (`BigIntegerTests`)
+- `QUERY` requests (`QueryMethodTests`)
 - options and conveniences (`OptionsAndConveniencesTests`)
 - external and fragment redirects
 - prefetch detection

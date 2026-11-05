@@ -55,7 +55,11 @@ The middleware layer must:
 - inject configured shared data
 - translate external redirects to `409` + `X-Inertia-Location`
 - translate internal redirects whose target contains a `#fragment` (non-prefetch) to `409` + `X-Inertia-Redirect`
-- convert non-GET Inertia `302` redirects to `303`
+- convert non-GET Inertia `302` redirects to `303` (`QUERY` included, as inertia-laravel 3.6 does)
+
+`QUERY` requests (a safe method with a request body, sent by Inertia.js 3.10+ clients) are non-GET for the 303
+conversion and for keeping validation errors across a redirect. The GET-only asset version check does not apply
+to them, as in the reference adapter.
 
 ## Asset version handling
 

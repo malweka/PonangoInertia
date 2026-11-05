@@ -563,6 +563,25 @@ The middleware also rewrites redirects returned during Inertia requests:
 | Internal URL containing a `#fragment` (not a prefetch) | `409` + `X-Inertia-Redirect` (the client makes a fresh Inertia visit and keeps the fragment) |
 | Any other `302` after a non-GET request (`QUERY` included) | `303` |
 
+### Empty responses redirect back
+
+An Inertia request answered with an empty `200` is redirected back to the page it came from, as in the reference
+adapter. An action that only does some work can return `Ok()` (or nothing) and the client still lands on a page:
+
+```csharp
+[HttpPost("/notifications/read")]
+public IActionResult MarkAllRead()
+{
+    _notifications.MarkAllRead(User);
+    return Ok();   // 303 to the same-host Referer, else to the app root
+}
+```
+
+The target follows the same rules as `Back()`: the `Referer` when it is on this host, else the app root (with its
+path base). Only a `200` with nothing written to the body counts: a body of any length (even `"0"`), a streamed
+response and other status codes such as `204` are left alone. Flash data and errors stored with `FlashErrors(...)`
+survive the redirect. Set `InertiaOptions.RedirectEmptyResponsesBack = false` to turn it off.
+
 ## Asset version mismatches
 
 When an Inertia GET request carries a stale `X-Inertia-Version`, the response is `409` with

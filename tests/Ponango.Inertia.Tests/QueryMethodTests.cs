@@ -69,15 +69,13 @@ public class QueryMethodTests
     {
         using var test = StartInertiaQuery();
         test.HttpContext.Request.Headers["X-Inertia-Version"] = "stale-version";
-        var reached = false;
 
-        await new InertiaMiddleware(_ =>
-        {
-            reached = true;
-            return Task.CompletedTask;
-        }).InvokeAsync(test.HttpContext);
+        await new InertiaMiddleware(context =>
+            context.RequestServices.GetRequiredService<InertiaContext>()
+                .Render("Products/Index", new { })
+                .ExecuteResultAsync(TestInfrastructure.CreateActionContext(context)))
+            .InvokeAsync(test.HttpContext);
 
-        Assert.True(reached);
         Assert.Equal(StatusCodes.Status200OK, test.HttpContext.Response.StatusCode);
         Assert.False(test.HttpContext.Response.Headers.ContainsKey("X-Inertia-Location"));
     }

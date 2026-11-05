@@ -142,6 +142,7 @@ Applications should:
 - asset version mismatch handling
 - shared data middleware behavior
 - external and fragment redirect handling
+- redirecting empty responses back
 
 ## Core Architecture
 
@@ -155,6 +156,8 @@ Responsible for:
 - shared data injection from `InertiaOptions.SharedData`
 - external redirect translation to `409` + `X-Inertia-Location`
 - internal redirects to a `#fragment` URL translated to `409` + `X-Inertia-Redirect` (not for prefetch)
+- redirecting an empty `200` Inertia response back to the same-host `Referer` (`RedirectEmptyResponsesBack`); it
+  wraps the response body feature (`ResponseWriteTracker`) to see whether anything was written
 - `302` to `303` conversion for non-GET Inertia redirects
 
 ### InertiaResult
@@ -332,6 +335,7 @@ Current coverage includes:
 - validation errors across redirects and `Back()` (`ValidationErrorRedirectTests`)
 - big integers (`BigIntegerTests`)
 - `QUERY` requests (`QueryMethodTests`)
+- empty responses redirected back (`EmptyResponseTests`)
 - options and conveniences (`OptionsAndConveniencesTests`)
 - external and fragment redirects
 - prefetch detection

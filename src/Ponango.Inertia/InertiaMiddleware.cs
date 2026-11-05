@@ -54,7 +54,26 @@ public class InertiaMiddleware
             }
         }
 
-        await _next(context);
+        // An Inertia request answered with an empty 200 is redirected back, as in the reference adapter, so an action
+        // that only does work (and returns Ok()) still sends the client to a page.
+        if (inertiaContext.IsInertia && options?.RedirectEmptyResponsesBack != false)
+        {
+            using (var tracking = ResponseWriteTracker.Track(context))
+            {
+                await _next(context);
+
+                if (tracking.Tracker is { HasWritten: false }
+                    && !context.Response.HasStarted
+                    && context.Response.StatusCode == StatusCodes.Status200OK)
+                {
+                    RedirectBack(context);
+                }
+            }
+        }
+        else
+        {
+            await _next(context);
+        }
 
         if (inertiaContext.IsInertia && !context.Response.HasStarted && IsRedirectStatus(context.Response.StatusCode))
         {
@@ -87,6 +106,19 @@ public class InertiaMiddleware
         {
             context.Response.StatusCode = 303;
         }
+    }
+
+    /// <summary>
+    /// Turns the empty response into a <c>302</c> to the same-host <c>Referer</c>, else to the app root; the 303
+    /// conversion below then applies to non-GET requests.
+    /// </summary>
+    static void RedirectBack(HttpContext context)
+    {
+        var fallback = $"{context.Request.PathBase}/";
+        context.Response.Headers.Remove("Content-Type");
+        context.Response.Headers.Remove("Content-Length");
+        context.Response.StatusCode = StatusCodes.Status302Found;
+        context.Response.Headers.Location = InertiaExtensions.ResolveBackUrl(context.Request, fallback);
     }
 
     static bool IsRedirectStatus(int statusCode)

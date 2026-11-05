@@ -127,7 +127,7 @@ Legend:
 | [Prefetching](https://inertiajs.com/docs/v3/data-props/prefetching) | ✅ | Normal pipeline; `IsPrefetch` to skip side effects |
 | [Instant visits](https://inertiajs.com/docs/v3/the-basics/instant-visits) | ✅ | Relies on `sharedProps`, which is emitted by default. Shared once props are listed in both `sharedProps` and `onceProps` |
 | [Error handling](https://inertiajs.com/docs/v3/advanced/error-handling) (custom error pages) | ⚠️ | No helper like `handleExceptionsUsing`; render an Inertia page from your own exception or status-code handler |
-| Empty response → redirect back | ❌ | Return an explicit redirect, such as `Back()` |
+| Empty response → redirect back | ✅ | An empty `200` to an Inertia request becomes a redirect to the same-host `Referer` (`303` after non-GET). `InertiaOptions.RedirectEmptyResponsesBack` turns it off |
 | [Server-side rendering](https://inertiajs.com/docs/v3/advanced/server-side-rendering) | ❌ | Pages render client-side only |
 | [DevTools](https://inertiajs.com/docs/v3/advanced/devtools) server recorder | ❌ | The browser extension still records client-side data |
 | [Testing](https://inertiajs.com/docs/v3/advanced/testing) helpers (`assertInertia`) | ❌ | Assert on the JSON page object with your own helpers |

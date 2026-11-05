@@ -49,6 +49,9 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 - `QUERY` requests (Inertia.js 3.10) are covered by tests and documented: redirects become `303`, validation
   errors are kept across the redirect, and the asset version is only checked on `GET`.
 - `docs/compatibility.md` is checked against Inertia.js 3.11.0 and inertia-laravel 3.7.0.
+- Empty responses redirect back, as in the reference adapter: an Inertia request answered with an empty `200`
+  becomes a redirect to the same-host `Referer` (else the app root), `303` after non-GET requests. A body of any
+  length, a streamed response and other status codes are left alone.
 
 ### Changed
 
@@ -57,6 +60,9 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 - `MergeProp.WithScroll(...)` is obsolete in favor of `Inertia.Scroll(...)`. Its `scrollProps` entry now includes
   `reset` (`true` when the prop is reset) and emits `null` page values explicitly instead of omitting them.
 - Shared props are emitted before page props in `props` (page props still win on key conflicts).
+- An action that answers an Inertia request with an empty `200` (`return Ok();`) now redirects back instead of
+  sending an empty response, which the client could not render. Set
+  `InertiaOptions.RedirectEmptyResponsesBack = false` to keep the old behavior.
 - Validation errors from an Inertia form request that redirects with an invalid `ModelState` now reach the next
   page instead of being dropped. Set `InertiaOptions.PersistValidationErrorsOnRedirect = false` to opt out.
 - The `InertiaContext` constructors gained an optional `InertiaValidationErrors? validationErrors` parameter.

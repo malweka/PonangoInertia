@@ -81,6 +81,7 @@ Default component derivation should support route-based naming, including area/c
 - `PreserveBigIntegers`
 - `WithAllErrors`
 - `PersistValidationErrorsOnRedirect`
+- `RedirectEmptyResponsesBack`
 - `ExposeSharedPropKeys`
 - `SharedData`
 - `JsonSerializerOptions` (applied once; the resulting options are reused for every response)

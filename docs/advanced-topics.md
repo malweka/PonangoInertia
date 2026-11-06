@@ -338,7 +338,8 @@ works with any broadcaster:
 - **SignalR:** the `Ponango.Inertia.SignalR` package provides the hub (with per-channel authorization) and an
   `IInertiaBroadcaster`; the [`@ponango/inertia-signalr`](../clients/inertia-signalr/README.md) client transport
   connects to it. See the [package README](../src/Ponango.Inertia.SignalR/README.md) and the
-  [LiveProps sample](../samples/LiveProps/README.md).
+  [LiveProps sample](../samples/LiveProps/README.md). For several instances, containers and proxies, see
+  [Hosting](hosting.md#live-props-on-several-instances).
 - **A Pusher-protocol service** (Pusher, Ably, Soketi): use the client's built-in `pusher()` transport, and send
   events with the service's .NET SDK and a `BroadcastPropsAsync` payload.
 
@@ -626,6 +627,9 @@ The middleware also rewrites redirects returned during Inertia requests:
 | External URL (another host or port), with or without a fragment | `409` + `X-Inertia-Location` (the client does a full `window.location` visit) |
 | Internal URL containing a `#fragment` (not a prefetch) | `409` + `X-Inertia-Redirect` (the client makes a fresh Inertia visit and keeps the fragment) |
 | Any other `302` after a non-GET request (`QUERY` included) | `303` |
+
+Behind a proxy that ends TLS, set up [forwarded headers](hosting.md#forwarded-headers), or redirects to the app's
+own absolute URLs look external.
 
 ### Empty responses redirect back
 

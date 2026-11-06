@@ -37,6 +37,7 @@ The repository should keep:
 - `docs/getting-started.md` for new users
 - `docs/advanced-topics.md` for data and protocol behavior
 - `docs/compatibility.md` for feature-by-feature compatibility with the current Inertia.js release
+- `docs/hosting.md` for proxies, several instances and container platforms
 - `docs/migration-from-v1.md` and `docs/upgrading-to-3.0.md` for upgrade guidance
 - `CHANGELOG.md` for released changes
 

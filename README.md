@@ -7,6 +7,7 @@ A .NET 8.0 server-side adapter for [Inertia.js](https://inertiajs.com/), enablin
 - [Getting Started](./docs/getting-started.md)
 - [Advanced Topics](./docs/advanced-topics.md)
 - [Compatibility with Inertia.js](./docs/compatibility.md)
+- [Hosting behind a proxy and in containers](./docs/hosting.md)
 - [Upgrading to 3.0](./docs/upgrading-to-3.0.md)
 - [Migration From v1](./docs/migration-from-v1.md)
 - [Changelog](./CHANGELOG.md)

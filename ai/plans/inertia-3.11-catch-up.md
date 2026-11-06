@@ -618,7 +618,8 @@ branch instead of one per phase).
   private channel refusal, `X-Socket-Id` sender exclusion, and rejoin plus refresh after a server restart, 6/6.
   Disabling the rejoin makes the restart check fail, so it is not vacuous. Found while writing the sample: inside
   an `InertiaController`, `Inertia.Live(...)` (like `Inertia.Defer(...)`) resolves to the controller's obsolete
-  `Inertia<T>(...)` method; the sample and the SignalR README use `using Props = Ponango.Inertia.Inertia;`. Not
-  fixed here: it predates this work and needs an API decision. Release: `release.yml` packs the npm tarball on
+  `Inertia<T>(...)` method. Fixed afterwards at the maintainer's request by removing that obsolete method (a
+  member named `Inertia` always hides the type in derived classes, so no non-breaking fix exists); listed under
+  breaking changes and in `docs/upgrading-to-3.0.md`. Release: `release.yml` packs the npm tarball on
   every run, publishes it on a tag (skipping a version already on npm), and attaches it to the GitHub Release;
   `build.yml` gained `client` and `e2e` jobs.

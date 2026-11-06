@@ -20,7 +20,9 @@ Legacy API:
 return _inertia.Inertia("Inertia", model, "Users/Index");
 ```
 
-The legacy `Inertia(...)` methods are still available, but they are marked obsolete in favor of `Render(...)`.
+The legacy `InertiaContext.Inertia(...)` extension is still available, but it is marked obsolete in favor of
+`Render(...)`. `InertiaController.Inertia(...)` was removed in 3.0: its name hid the static `Inertia` class in
+derived controllers.
 
 ## Shared data
 

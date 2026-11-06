@@ -106,6 +106,9 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 
 ### Breaking changes
 
+- The obsolete `InertiaController.Inertia(viewName, model, component, assetVersion)` method was removed. Its name
+  hid the static `Inertia` class in derived controllers, so `Inertia.Defer(...)` and the other factories did not
+  compile there. Use `Render(component, props)`. The obsolete `InertiaContext.Inertia(...)` extension remains.
 - Flash data is now emitted in the page object's top-level `flash` field, as Inertia v3 expects, instead of
   `props.flash`. Read it with `usePage().flash` or the `flash` event; the client no longer stores it in history,
   so it does not reappear on Back. A prop you share as `flash` is now an ordinary prop and is not merged with

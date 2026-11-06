@@ -4,6 +4,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Ponango.Inertia
 {
+    /// <summary>
+    /// A base controller with Inertia helpers. It has no member named <c>Inertia</c>, so the static
+    /// <see cref="Ponango.Inertia.Inertia"/> factories (<c>Inertia.Defer(...)</c>, <c>Inertia.Live(...)</c>) work in
+    /// derived controllers.
+    /// </summary>
     public abstract class InertiaController : Controller
     {
         protected InertiaContext InertiaContext => HttpContext.RequestServices.GetRequiredService<InertiaContext>();
@@ -42,53 +47,5 @@ namespace Ponango.Inertia
         /// </summary>
         [NonAction]
         public RedirectResult Back(string fallbackUrl = "/") => InertiaContext.Back(fallbackUrl);
-
-        [Obsolete("Use Render() instead.")]
-        public InertiaResult Inertia<T>(string viewName, T model, string? component = null, string? assetVersion = null)
-        {
-            if (string.IsNullOrWhiteSpace(component))
-            {
-                component = GetDefaultComponentName();
-            }
-
-            if (string.IsNullOrWhiteSpace(assetVersion))
-            {
-                assetVersion = InertiaContext.AssetVersionProvider.GetAssetVersion();
-            }
-
-            ViewData.Model = model;
-            return new InertiaResult(component, assetVersion)
-            {
-                ViewData = ViewData,
-                ViewName = viewName,
-                Url = InertiaExtensions.GetPageUrl(HttpContext.Request),
-                InertiaContext = InertiaContext
-            };
-        }
-
-        string GetDefaultComponentName()
-        {
-            var routeValues = ControllerContext.RouteData.Values;
-            var area = routeValues.TryGetValue("area", out var areaValue) ? areaValue?.ToString() : null;
-            var controller = routeValues.TryGetValue("controller", out var controllerValue)
-                ? controllerValue?.ToString()
-                : null;
-            var action = routeValues.TryGetValue("action", out var actionValue)
-                ? actionValue?.ToString()
-                : null;
-
-            if (string.IsNullOrWhiteSpace(controller))
-            {
-                var typeName = GetType().Name;
-                controller = typeName.EndsWith("Controller", StringComparison.InvariantCultureIgnoreCase)
-                    ? typeName[..typeName.LastIndexOf("Controller", StringComparison.InvariantCultureIgnoreCase)]
-                    : typeName;
-            }
-
-            var parts = new[] { area, controller, action }
-                .Where(part => !string.IsNullOrWhiteSpace(part));
-
-            return string.Join("/", parts);
-        }
     }
 }

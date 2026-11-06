@@ -35,12 +35,10 @@ public sealed class OrderUpdated(Order order) : ILiveEvent
     public IEnumerable<LiveChannel> Channels => new[] { LiveChannel.Private($"orders.{order.Id}") };
 }
 
-// In an InertiaController, a bare `Inertia` is the controller's obsolete Inertia(...) method, so alias the class:
-// using Props = Ponango.Inertia.Inertia;
 public IActionResult Show(int id)
 {
     var order = _orders.Find(id);
-    return Render("Orders/Show", new { order = Props.Live(() => _orders.Find(id), new OrderUpdated(order)) });
+    return Render("Orders/Show", new { order = Inertia.Live(() => _orders.Find(id), new OrderUpdated(order)) });
 }
 ```
 

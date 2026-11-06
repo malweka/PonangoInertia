@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Ponango.Inertia;
 using Ponango.Inertia.SignalR;
-// Inside an InertiaController, a bare "Inertia" means the controller's obsolete Inertia(...) method.
-using Props = Ponango.Inertia.Inertia;
 
 namespace LiveProps;
 
@@ -63,8 +61,8 @@ public sealed class OrdersController(OrderStore store, IInertiaBroadcaster broad
     public IActionResult Show(int id)
         => Render("Orders/Show", new
         {
-            order = Props.Live(() => store.Get(id), new OrderUpdated(id)),
-            ticker = Props.Live(() => store.Ticker, "ticker.ticked", "ticker"),
+            order = Inertia.Live(() => store.Get(id), new OrderUpdated(id)),
+            ticker = Inertia.Live(() => store.Ticker, "ticker.ticked", "ticker"),
             user = Request.Cookies["user"]
         });
 

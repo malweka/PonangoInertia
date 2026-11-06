@@ -10,7 +10,6 @@ Preferred APIs:
 
 Compatibility APIs:
 - `InertiaContext.Inertia(...)`
-- `InertiaController.Inertia(...)`
 
 Compatibility APIs should remain marked obsolete while they are still supported.
 
@@ -70,7 +69,8 @@ interfaces) are internal. Prop types defined outside the library are not a suppo
   - `IsPrecognition`
   - `SocketId`
 
-Default component derivation should support route-based naming, including area/controller/action when available.
+`InertiaController` must not declare a member named `Inertia`, which would hide the static `Inertia` factory class in
+derived controllers.
 
 ## Setup APIs
 

@@ -98,7 +98,9 @@ return _inertia.Render("Users/Index", new
 
 ### Legacy rendering API
 
-The older `Inertia(...)` methods still exist for compatibility, but they are obsolete.
+The older `InertiaContext.Inertia(...)` extension still exists for compatibility, but it is obsolete.
+`InertiaController` has no `Inertia` member (removed in 3.0): a member with that name would hide the static
+`Inertia` class in derived controllers. Do not add one.
 
 ```csharp
 return _inertia.Inertia("Inertia", model, "Users/Index");
@@ -142,7 +144,6 @@ rendered page, and `InertiaContext.Back(fallbackUrl)` redirects to a same-host `
 - `Location(...)`
 - `Redirect(...)` (303 for non-GET requests)
 - `Back(...)` (same-host `Referer`, else the fallback URL)
-- obsolete `Inertia(...)`
 - request flags:
   - `IsInertia`
   - `IsPrefetch`

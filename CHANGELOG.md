@@ -51,18 +51,20 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 - `docs/compatibility.md` is checked against Inertia.js 3.11.0 and inertia-laravel 3.7.0.
 - Empty responses redirect back, as in the reference adapter: an Inertia request answered with an empty `200`
   becomes a redirect to the same-host `Referer` (else the app root), `303` after non-GET requests. A body of any
-  length, a streamed response and other status codes are left alone.
+  length, a streamed response and other status codes are left alone. An invalid `ModelState` is kept across that
+  redirect too, as it is for an explicit redirect.
 - Live props (Inertia.js 3.11, inertia-laravel 3.7): `Inertia.Live(value, on, channel)` and a `.Live(...)` modifier
   on optional, deferred, once and always props emit the new `liveProps` page field, so the client refreshes the
   prop when a broadcast event arrives. Channels are `LiveChannel` values (public, private, presence, encrypted
   private); `ILiveEvent` describes an event and its channels once. Merge props cannot be live.
+  `LiveChannel.TryParse(type, name)` reads a channel as the page object sends it, keeping the name exactly.
 - `Inertia.BroadcastPropsAsync(props, event, socketId)` builds the `{ "__inertia": { "props": ... } }` payload of a
   broadcast event that carries new prop values.
 - `InertiaContext.SocketId` and `InertiaController.SocketId` expose the client's `X-Socket-Id` header.
 - New package `Ponango.Inertia.SignalR`: carries live events over SignalR. `AddInertiaLive(...)` with per-channel
   authorization rules (`options.Channel("orders.{id}", ...)`), `MapInertiaLive()` for the hub, and
   `IInertiaBroadcaster` to send events with or without prop values. It ships with the same version as
-  `Ponango.Inertia`.
+  `Ponango.Inertia` and depends on exactly that version.
 - New npm package `@ponango/inertia-signalr`: the client transport for `Ponango.Inertia.SignalR`
   (`createInertiaApp({ live: signalR({ connection }) })`). It joins and leaves channels through the hub, and
   rejoins them after a reconnect. Same version as the NuGet packages; pre-releases use the `next` dist-tag.

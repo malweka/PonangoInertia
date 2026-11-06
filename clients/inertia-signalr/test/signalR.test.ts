@@ -62,8 +62,16 @@ class FakeConnection implements SignalRConnection {
   }
 
   dropAndReconnect(): void {
+    this.drop()
+    this.reconnect()
+  }
+
+  drop(): void {
     this.state = 'Reconnecting'
     this.reconnectingCallbacks.forEach((callback) => callback())
+  }
+
+  reconnect(): void {
     this.state = 'Connected'
     this.connectionId = 'conn-reconnected'
     this.reconnectedCallbacks.forEach((callback) => callback(this.connectionId!))
@@ -167,6 +175,16 @@ describe('subscribing', () => {
 
     expect(connection.calls('Unsubscribe')).toHaveLength(0)
     expect(connection.calls('Subscribe')).toHaveLength(2)
+  })
+
+  it('does not join a channel released right after subscribing on a connected hub', async () => {
+    connection.state = 'Connected'
+
+    const release = transport.subscribeToChannel(orders, () => {})
+    release()
+    await flush()
+
+    expect(connection.calls('Subscribe')).toHaveLength(0)
   })
 
   it('warns, without throwing, when the hub refuses a channel', async () => {
@@ -286,6 +304,60 @@ describe('connection state', () => {
     await flush()
 
     expect(statuses).toEqual([true, false, true])
+  })
+
+  it('does not report a rejoin that a later drop overtook', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const statuses: boolean[] = []
+    transport.onStatusChange!((connected) => statuses.push(connected))
+    transport.subscribeToChannel(orders, () => {})
+    await flush()
+
+    connection.autoResolve = false
+    connection.dropAndReconnect()
+    await flush()
+    expect(connection.calls('Subscribe')).toHaveLength(2)
+
+    // The connection drops again while the rejoin is pending, and the pending Subscribe fails with it
+    connection.drop()
+    connection.invocations[1].deferred.reject(new Error('Connection lost'))
+    await flush()
+
+    expect(connection.state).toBe('Reconnecting')
+    expect(statuses).toEqual([true, false, false])
+
+    // The second reconnect rejoins, and only its completion reports the connection back
+    connection.reconnect()
+    await flush()
+    expect(connection.calls('Subscribe')).toHaveLength(3)
+    expect(statuses).toEqual([true, false, false])
+
+    connection.invocations[2].deferred.resolve()
+    await flush()
+    expect(statuses).toEqual([true, false, false, true])
+  })
+
+  it('does not report a rejoin overtaken by a drop and quick reconnect', async () => {
+    const statuses: boolean[] = []
+    transport.onStatusChange!((connected) => statuses.push(connected))
+    transport.subscribeToChannel(orders, () => {})
+    await flush()
+
+    connection.autoResolve = false
+    connection.dropAndReconnect()
+    await flush()
+    connection.dropAndReconnect()
+    await flush()
+    expect(connection.calls('Subscribe')).toHaveLength(3)
+
+    // The first rejoin settles while the second is still pending: the connection is not back yet
+    connection.invocations[1].deferred.resolve()
+    await flush()
+    expect(statuses).toEqual([true, false, false])
+
+    connection.invocations[2].deferred.resolve()
+    await flush()
+    expect(statuses).toEqual([true, false, false, true])
   })
 
   it('reports a closed connection', async () => {

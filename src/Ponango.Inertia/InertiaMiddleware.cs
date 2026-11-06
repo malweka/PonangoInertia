@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -67,6 +68,13 @@ public class InertiaMiddleware
                     && context.Response.StatusCode == StatusCodes.Status200OK)
                 {
                     RedirectBack(context);
+
+                    // The validation filter saw an invalid ModelState but no redirect; now there is one.
+                    if (context.Items.TryGetValue(InertiaValidationErrorsFilter.PendingModelStateItemKey, out var pending)
+                        && pending is ModelStateDictionary modelState)
+                    {
+                        InertiaValidationErrorsFilter.PersistErrors(inertiaContext, modelState);
+                    }
                 }
             }
         }

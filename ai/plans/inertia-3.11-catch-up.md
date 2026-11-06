@@ -603,8 +603,8 @@ branch instead of one per phase).
   differences). `BroadcastPropsAsync` has a public overload taking an `ILogger` for rescued props. 255 tests.
 - **Phase 4** (`Ponango.Inertia.SignalR`): the NuGet build and release steps (pack verification in `build.yml`,
   pack of both packages in `release.yml`) were done here instead of Phase 5, since they don't depend on npm.
-  The package depends on `Ponango.Inertia` at the same version as a minimum (`>=`), the standard NuGet range,
-  not an exact pin. Channel rules get a `LiveChannelAuthorizationContext` (user, captured values, HttpContext,
+  The package first depended on `Ponango.Inertia` as a minimum (`>=`); after review it depends on the exact
+  version, as D7 says (`UseExactProjectReferenceVersions` in the csproj, checked in `build.yml`). Channel rules get a `LiveChannelAuthorizationContext` (user, captured values, HttpContext,
   connection id, scoped services) instead of positional delegate arguments. 23 SignalR tests over real hub
   connections (TestServer, long polling). To check at the first release: that nuget.org trusted publishing
   accepts the new package id from `release.yml`.

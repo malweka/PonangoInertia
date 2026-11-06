@@ -49,6 +49,20 @@ jobs:
           dotnet pack src/Ponango.Inertia/Ponango.Inertia.csproj -c Release --no-build --nologo -o /tmp/pack-check
           dotnet pack src/Ponango.Inertia.SignalR/Ponango.Inertia.SignalR.csproj -c Release --no-build --nologo -o /tmp/pack-check
 
+      # The packages ship in lockstep, so Ponango.Inertia.SignalR must depend on exactly its own version of
+      # Ponango.Inertia ([x.y.z]), never a minimum (see UseExactProjectReferenceVersions in its csproj).
+      - name: Check the SignalR package's dependency range
+        run: |
+          set -euo pipefail
+          nuspec=$(unzip -p /tmp/pack-check/Ponango.Inertia.SignalR.*.nupkg Ponango.Inertia.SignalR.nuspec)
+          own=$(echo "$nuspec" | sed -n 's:.*<version>\(.*\)</version>.*:\1:p' | head -n 1)
+          if ! echo "$nuspec" | grep -qF "<dependency id=\"Ponango.Inertia\" version=\"[$own]\""; then
+            echo "::error::Ponango.Inertia.SignalR $own must depend on Ponango.Inertia [$own] exactly"
+            echo "$nuspec" | grep -F '<dependency'
+            exit 1
+          fi
+          echo "Ponango.Inertia.SignalR $own depends on Ponango.Inertia [$own]"
+
   # The @ponango/inertia-signalr client transport: type check, unit tests, build, and the files npm would publish.
   client:
     runs-on: ubuntu-latest

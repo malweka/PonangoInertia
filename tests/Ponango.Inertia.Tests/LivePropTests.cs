@@ -118,6 +118,28 @@ public class LivePropTests
     }
 
     [Fact]
+    public void TryParse_keeps_the_sent_name_and_round_trips_the_channel()
+    {
+        var channel = LiveChannel.Private("private-private-orders.1");
+
+        Assert.True(LiveChannel.TryParse(channel.TypeName, channel.Name, out var parsed));
+        Assert.Equal(channel, parsed);
+        Assert.Equal("private:private-orders.1", parsed.Key);
+    }
+
+    [Theory]
+    [InlineData("bogus", "orders.1")]
+    [InlineData("private", "")]
+    [InlineData("private", " ")]
+    [InlineData(null, "orders.1")]
+    [InlineData("private", null)]
+    public void TryParse_rejects_an_unknown_type_or_an_empty_name(string? type, string? name)
+    {
+        Assert.False(LiveChannel.TryParse(type, name, out var channel));
+        Assert.Null(channel);
+    }
+
+    [Fact]
     public void A_bare_string_is_a_public_channel()
     {
         LiveChannel channel = "orders.1";

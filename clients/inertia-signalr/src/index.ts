@@ -76,6 +76,8 @@ export const signalR = ({
   let connected = false
   // Between onreconnecting and the end of the rejoin, so "connected" is only reported once every channel is back
   let reconnecting = false
+  // Bumped by every connection change, so a rejoin that a later drop overtook does not report the connection back
+  let generation = 0
 
   const report = (value: boolean): void => {
     connected = value
@@ -113,16 +115,24 @@ export const signalR = ({
     })
 
     instance.onreconnecting(() => {
+      generation++
       reconnecting = true
       report(false)
     })
     instance.onclose(() => {
+      generation++
       reconnecting = false
       report(false)
     })
     instance.onreconnected(() => {
+      const current = ++generation
       reconnecting = true
       void Promise.all([...channels.values()].map((entry) => join(entry))).then(() => {
+        // The connection dropped again while rejoining: the next onreconnected rejoins and reports
+        if (current !== generation || instance.state !== 'Connected') {
+          return
+        }
+
         reconnecting = false
         report(true)
       })
@@ -172,7 +182,8 @@ export const signalR = ({
 
   const join = async (entry: Entry): Promise<void> => {
     try {
-      if (!(await whenConnected(entry))) {
+      // Checked again after the await: the channel may have been released while the continuation was queued
+      if (!(await whenConnected(entry)) || !isActive(entry)) {
         return
       }
 

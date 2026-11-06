@@ -46,7 +46,8 @@ Prop wrappers should be composable through fluent modifiers:
   it throws on a merging prop, and merge modifiers throw on a live prop
 
 `LiveChannel` (name and `LiveChannelType`, a string converts to a public channel) and `ILiveEvent` describe what a
-live prop listens to.
+live prop listens to. Its constructor removes a prefix matching the type once; `LiveChannel.TryParse(type, name)`
+reads a channel from the wire without removing anything, so a name round-trips.
 
 `InertiaContext` should expose `Share(...)` and `ShareOnce(...)`, and `FlashErrors(ModelStateDictionary, bag)` /
 `FlashErrors(IDictionary<string, string>, bag)` to keep validation errors for the next rendered page.

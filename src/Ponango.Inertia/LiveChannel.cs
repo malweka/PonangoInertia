@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Ponango.Inertia;
 
 /// <summary>
@@ -30,13 +32,18 @@ public sealed record LiveChannel
     /// <c>private-encrypted-</c>) is removed from the name, since the type is sent separately.
     /// </summary>
     public LiveChannel(string name, LiveChannelType type = LiveChannelType.Public)
+        : this(name, type, stripPrefix: true)
+    {
+    }
+
+    LiveChannel(string name, LiveChannelType type, bool stripPrefix)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (!Enum.IsDefined(type))
             throw new ArgumentOutOfRangeException(nameof(type));
 
         var prefix = Prefix(type);
-        if (prefix.Length > 0 && name.Length > prefix.Length && name.StartsWith(prefix, StringComparison.Ordinal))
+        if (stripPrefix && prefix.Length > 0 && name.Length > prefix.Length && name.StartsWith(prefix, StringComparison.Ordinal))
             name = name[prefix.Length..];
 
         Name = name;
@@ -84,6 +91,22 @@ public sealed record LiveChannel
             case "encrypted-private": type = LiveChannelType.EncryptedPrivate; return true;
             default: type = default; return false;
         }
+    }
+
+    /// <summary>
+    /// Reads a channel as the page object sends it: a protocol type name (<see cref="TypeName"/>) and a
+    /// <see cref="Name"/> that is already without its prefix, so the name is kept exactly. A server transport uses
+    /// this for the channels clients subscribe to, so they match the channels the server broadcasts on. Returns false
+    /// for an unknown type or an empty name.
+    /// </summary>
+    public static bool TryParse(string? typeName, string? name, [NotNullWhen(true)] out LiveChannel? channel)
+    {
+        channel = null;
+        if (!TryParseType(typeName, out var type) || string.IsNullOrWhiteSpace(name))
+            return false;
+
+        channel = new LiveChannel(name, type, stripPrefix: false);
+        return true;
     }
 
     /// <summary>A bare string is a public channel.</summary>

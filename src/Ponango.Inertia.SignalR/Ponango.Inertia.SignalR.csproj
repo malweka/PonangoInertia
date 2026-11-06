@@ -44,4 +44,17 @@
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 		<ProjectReference Include="../Ponango.Inertia/Ponango.Inertia.csproj" />
 	</ItemGroup>
+
+	<!-- Both packages ship in lockstep, so the package depends on exactly its own version of Ponango.Inertia
+	     ([3.0.0], not ">= 3.0.0"). NuGet has no setting for a project reference's range, so the version it resolved
+	     is wrapped in brackets before the nuspec is written. -->
+	<Target Name="UseExactProjectReferenceVersions" AfterTargets="_GetProjectReferenceVersions">
+		<ItemGroup>
+			<_ExactProjectReferenceVersions Include="@(_ProjectReferencesWithVersions)">
+				<ProjectVersion>[%(_ProjectReferencesWithVersions.ProjectVersion)]</ProjectVersion>
+			</_ExactProjectReferenceVersions>
+			<_ProjectReferencesWithVersions Remove="@(_ProjectReferencesWithVersions)" />
+			<_ProjectReferencesWithVersions Include="@(_ExactProjectReferenceVersions)" />
+		</ItemGroup>
+	</Target>
 </Project>

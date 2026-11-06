@@ -56,7 +56,8 @@ The middleware layer must:
 - translate external redirects to `409` + `X-Inertia-Location`
 - translate internal redirects whose target contains a `#fragment` (non-prefetch) to `409` + `X-Inertia-Redirect`
 - redirect an Inertia request answered with an empty `200` (no body bytes written, response not started) to the
-  same-host `Referer`, else to the path base root, unless `RedirectEmptyResponsesBack` is off
+  same-host `Referer`, else to the path base root, unless `RedirectEmptyResponsesBack` is off; an invalid
+  `ModelState` of a non-GET request is kept for the next page, as for an explicit redirect
 - convert non-GET Inertia `302` redirects to `303` (`QUERY` included, as inertia-laravel 3.6 does)
 
 `QUERY` requests (a safe method with a request body, sent by Inertia.js 3.10+ clients) are non-GET for the 303

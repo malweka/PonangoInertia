@@ -80,6 +80,32 @@ public class InertiaLiveHubTests
         Assert.Equal("private:orders.1", (await client.NextAsync()).ChannelKey);
     }
 
+    // LiveChannel.Private("private-private-orders.1") is named "private-orders.1" after its one prefix is removed. The
+    // hub must not remove another one, or it would authorize and join "orders.1" instead.
+    [Fact]
+    public async Task Channel_name_that_still_starts_with_its_prefix_is_kept_as_sent()
+    {
+        await using var app = await LiveHubFixture.StartAsync(options =>
+        {
+            options.Channel("orders.{id}", _ => false);
+            options.Channel("private-orders.{id}", context => context.User.Identity?.Name == "alice");
+        });
+        var channel = LiveChannel.Private("private-private-orders.1");
+        Assert.Equal("private-orders.1", channel.Name);
+
+        var client = await app.ConnectAsync("alice");
+        await client.SubscribeAsync("public", MarkerChannel);
+        await client.SubscribeAsync(channel.TypeName, channel.Name);
+
+        await app.Broadcaster.BroadcastAsync("order.updated", channel);
+        Assert.Equal("private:private-orders.1", (await client.NextAsync()).ChannelKey);
+
+        await client.UnsubscribeAsync(channel.TypeName, channel.Name);
+        await app.Broadcaster.BroadcastAsync("order.updated", channel);
+        await app.Broadcaster.BroadcastAsync("marker", MarkerChannel);
+        Assert.Equal("public:marker", (await client.NextAsync()).ChannelKey);
+    }
+
     [Theory]
     [InlineData("bob", "orders.1")]       // the rule says no
     [InlineData(null, "orders.1")]        // not signed in

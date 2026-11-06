@@ -177,7 +177,9 @@ Responsible for:
 - external redirect translation to `409` + `X-Inertia-Location`
 - internal redirects to a `#fragment` URL translated to `409` + `X-Inertia-Redirect` (not for prefetch)
 - redirecting an empty `200` Inertia response back to the same-host `Referer` (`RedirectEmptyResponsesBack`); it
-  wraps the response body feature (`ResponseWriteTracker`) to see whether anything was written
+  wraps the response body feature (`ResponseWriteTracker`) to see whether anything was written. The validation
+  errors filter leaves an invalid `ModelState` of a non-redirect result in `HttpContext.Items`, and the middleware
+  keeps those errors when it redirects
 - `302` to `303` conversion for non-GET Inertia redirects
 
 ### InertiaResult
@@ -232,12 +234,14 @@ adapting more reference-adapter behavior, read `src/PropsResolver.php` in inerti
 
 ### Ponango.Inertia.SignalR
 
-`src/Ponango.Inertia.SignalR/`, a separate NuGet package (same version as `Ponango.Inertia`) that carries live
-events over SignalR:
+`src/Ponango.Inertia.SignalR/`, a separate NuGet package that carries live events over SignalR. It has the same
+version as `Ponango.Inertia` and depends on exactly that version (`UseExactProjectReferenceVersions` in the csproj;
+`build.yml` checks the packed nuspec):
 
 - `InertiaLiveHub`: `Subscribe(type, name)` joins the group `{type}:{name}` after the channel rules in
   `InertiaLiveOptions` allow it (public channels are open; encrypted private channels are refused);
-  `Unsubscribe(type, name)` leaves it
+  `Unsubscribe(type, name)` leaves it. It reads the channel with `LiveChannel.TryParse`, never the constructor:
+  the name is already without its prefix, and removing one again would authorize and join another channel
 - `IInertiaBroadcaster` (singleton): builds the payload with `Inertia.BroadcastPropsAsync` and sends
   `inertia(channelKey, payload)` to each channel's group, optionally excluding a socket id
 - `AddInertiaLive(...)` / `MapInertiaLive(...)`

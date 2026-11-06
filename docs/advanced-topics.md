@@ -297,7 +297,8 @@ result.With("stats", Inertia.Always(() => _stats.Today()).Live(new[] { "order.cr
   prop live and keeps its other behavior. Calls add up, and `throttle` keeps the last value given.
 - A string channel is public. Use `LiveChannel.Private(...)`, `LiveChannel.Presence(...)` or
   `LiveChannel.EncryptedPrivate(...)` for the others. A Laravel-style prefix (`private-orders.1`) is removed,
-  since the type is sent separately.
+  since the type is sent separately. A server transport reads the channels clients send with
+  `LiveChannel.TryParse(type, name)`, which keeps the name as sent.
 - Merge props cannot be live: `Live(...)` on a merging prop, or a merge modifier on a live prop, throws.
 - A deferred or optional live prop still announces its listeners on the full visit, so the client listens before
   the prop is loaded. On a partial reload a live prop's entry is sent when the prop is selected, is an always
@@ -642,8 +643,9 @@ public IActionResult MarkAllRead()
 
 The target follows the same rules as `Back()`: the `Referer` when it is on this host, else the app root (with its
 path base). Only a `200` with nothing written to the body counts: a body of any length (even `"0"`), a streamed
-response and other status codes such as `204` are left alone. Flash data and errors stored with `FlashErrors(...)`
-survive the redirect. Set `InertiaOptions.RedirectEmptyResponsesBack = false` to turn it off.
+response and other status codes such as `204` are left alone. Flash data, errors stored with `FlashErrors(...)` and
+an invalid `ModelState` of a non-GET request survive the redirect, as they do with `Back()`. Set
+`InertiaOptions.RedirectEmptyResponsesBack = false` to turn it off.
 
 ## Asset version mismatches
 

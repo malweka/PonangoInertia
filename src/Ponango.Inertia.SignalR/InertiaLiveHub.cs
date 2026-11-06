@@ -47,10 +47,9 @@ public class InertiaLiveHub : Hub
     /// <summary>Leaves the channel's group. Unknown or invalid channels are ignored.</summary>
     public async Task Unsubscribe(string type, string name)
     {
-        if (!LiveChannel.TryParseType(type, out var channelType) || string.IsNullOrWhiteSpace(name))
+        if (!LiveChannel.TryParse(type, name, out var channel))
             return;
 
-        var channel = new LiveChannel(name, channelType);
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, InertiaLiveProtocol.GroupName(channel), Context.ConnectionAborted);
     }
 
@@ -71,14 +70,18 @@ public class InertiaLiveHub : Hub
         return await rule.Authorize(context);
     }
 
+    /// <summary>
+    /// The name comes from the page object, where it is already without its prefix, so it is kept as sent: the same
+    /// channel the server broadcasts on.
+    /// </summary>
     static LiveChannel ParseChannel(string type, string name)
     {
-        if (!LiveChannel.TryParseType(type, out var channelType))
+        if (!LiveChannel.TryParseType(type, out _))
             throw new HubException($"Unknown live channel type \"{type}\".");
 
-        if (string.IsNullOrWhiteSpace(name))
+        if (!LiveChannel.TryParse(type, name, out var channel))
             throw new HubException("The live channel name is empty.");
 
-        return new LiveChannel(name, channelType);
+        return channel;
     }
 }

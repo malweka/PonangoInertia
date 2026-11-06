@@ -118,6 +118,39 @@ public class PropsResolverTests
         Assert.Equal(JsonValueKind.Number, OnceEntry(document, "countries").GetProperty("expiresAt").ValueKind);
     }
 
+    // Instant visits (client 3.10, inertiajs/inertia#3356) carry a shared once prop over only when its key is listed in
+    // both sharedProps and onceProps.
+    [Fact]
+    public async Task Shared_once_prop_is_listed_in_both_sharedProps_and_onceProps()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        TestHelpers.AsInertia(test.HttpContext);
+        var inertia = test.GetRequiredService<InertiaContext>();
+        inertia.ShareOnce("countries", () => new[] { "BE", "CD" });
+
+        using var document = await TestHelpers.ExecuteJsonAsync(test, inertia.Render("Page", new { }));
+
+        Assert.Equal(2, Props(document).GetProperty("countries").GetArrayLength());
+        Assert.Contains("countries", TestHelpers.Strings(document.RootElement.GetProperty("sharedProps")));
+        Assert.Equal(JsonValueKind.Object, OnceEntry(document, "countries").ValueKind);
+    }
+
+    [Fact]
+    public async Task Shared_once_prop_held_by_the_client_stays_in_sharedProps_and_onceProps()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        TestHelpers.AsInertia(test.HttpContext);
+        test.HttpContext.Request.Headers["X-Inertia-Except-Once-Props"] = "countries";
+        var inertia = test.GetRequiredService<InertiaContext>();
+        inertia.ShareOnce("countries", () => new[] { "BE", "CD" });
+
+        using var document = await TestHelpers.ExecuteJsonAsync(test, inertia.Render("Page", new { }));
+
+        Assert.False(Props(document).TryGetProperty("countries", out _));
+        Assert.Contains("countries", TestHelpers.Strings(document.RootElement.GetProperty("sharedProps")));
+        Assert.Equal(JsonValueKind.Object, OnceEntry(document, "countries").ValueKind);
+    }
+
     // ----- Deferred composition -----
 
     [Fact]

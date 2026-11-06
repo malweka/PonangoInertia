@@ -10,7 +10,7 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 
 ### Added
 
-- `docs/compatibility.md`: feature-by-feature compatibility tables against Inertia.js 3.8.0, and a README
+- `docs/compatibility.md`: feature-by-feature compatibility tables against the current Inertia.js release, and a README
   overview of Inertia and of what the adapter provides.
 - Version-mismatch `409` responses now echo the current asset version in `X-Inertia-Version`.
 - Precognitive actions add `Precognition` to the `Vary` header on every response.
@@ -46,6 +46,31 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
   wrapper key (`mergeProps: ["posts.data"]`), supports page numbers and cursors (`ScrollMetadata.ForPage`,
   `ScrollMetadata.ForCursor`), `MatchingOn`, and `.Defer()`.
 
+- `QUERY` requests (Inertia.js 3.10) are covered by tests and documented: redirects become `303`, validation
+  errors are kept across the redirect, and the asset version is only checked on `GET`.
+- `docs/compatibility.md` is checked against Inertia.js 3.11.0 and inertia-laravel 3.7.0.
+- Empty responses redirect back, as in the reference adapter: an Inertia request answered with an empty `200`
+  becomes a redirect to the same-host `Referer` (else the app root), `303` after non-GET requests. A body of any
+  length, a streamed response and other status codes are left alone. An invalid `ModelState` is kept across that
+  redirect too, as it is for an explicit redirect.
+- Live props (Inertia.js 3.11, inertia-laravel 3.7): `Inertia.Live(value, on, channel)` and a `.Live(...)` modifier
+  on optional, deferred, once and always props emit the new `liveProps` page field, so the client refreshes the
+  prop when a broadcast event arrives. Channels are `LiveChannel` values (public, private, presence, encrypted
+  private); `ILiveEvent` describes an event and its channels once. Merge props cannot be live.
+  `LiveChannel.TryParse(type, name)` reads a channel as the page object sends it, keeping the name exactly.
+- `Inertia.BroadcastPropsAsync(props, event, socketId)` builds the `{ "__inertia": { "props": ... } }` payload of a
+  broadcast event that carries new prop values.
+- `InertiaContext.SocketId` and `InertiaController.SocketId` expose the client's `X-Socket-Id` header.
+- New package `Ponango.Inertia.SignalR`: carries live events over SignalR. `AddInertiaLive(...)` with per-channel
+  authorization rules (`options.Channel("orders.{id}", ...)`), `MapInertiaLive()` for the hub, and
+  `IInertiaBroadcaster` to send events with or without prop values. It ships with the same version as
+  `Ponango.Inertia` and depends on exactly that version.
+- New npm package `@ponango/inertia-signalr`: the client transport for `Ponango.Inertia.SignalR`
+  (`createInertiaApp({ live: signalR({ connection }) })`). It joins and leaves channels through the hub, and
+  rejoins them after a reconnect or a restart of a closed connection. `keepRetrying` is a reconnect policy that
+  never gives up. Same version as the NuGet packages; pre-releases use the `next` dist-tag.
+- `samples/LiveProps`: an ASP.NET Core + Vue app with live props over SignalR, checked end to end in CI.
+
 ### Changed
 
 - `X-Inertia-Infinite-Scroll-Merge-Intent` now only affects scroll props (`MergeProp.WithScroll(...)`), as in the
@@ -53,6 +78,9 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 - `MergeProp.WithScroll(...)` is obsolete in favor of `Inertia.Scroll(...)`. Its `scrollProps` entry now includes
   `reset` (`true` when the prop is reset) and emits `null` page values explicitly instead of omitting them.
 - Shared props are emitted before page props in `props` (page props still win on key conflicts).
+- An action that answers an Inertia request with an empty `200` (`return Ok();`) now redirects back instead of
+  sending an empty response, which the client could not render. Set
+  `InertiaOptions.RedirectEmptyResponsesBack = false` to keep the old behavior.
 - Validation errors from an Inertia form request that redirects with an invalid `ModelState` now reach the next
   page instead of being dropped. Set `InertiaOptions.PersistValidationErrorsOnRedirect = false` to opt out.
 - The `InertiaContext` constructors gained an optional `InertiaValidationErrors? validationErrors` parameter.
@@ -81,6 +109,9 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
 
 ### Breaking changes
 
+- The obsolete `InertiaController.Inertia(viewName, model, component, assetVersion)` method was removed. Its name
+  hid the static `Inertia` class in derived controllers, so `Inertia.Defer(...)` and the other factories did not
+  compile there. Use `Render(component, props)`. The obsolete `InertiaContext.Inertia(...)` extension remains.
 - Flash data is now emitted in the page object's top-level `flash` field, as Inertia v3 expects, instead of
   `props.flash`. Read it with `usePage().flash` or the `flash` event; the client no longer stores it in history,
   so it does not reappear on Back. A prop you share as `flash` is now an ordinary prop and is not merged with
@@ -97,8 +128,9 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
   as in the reference adapter. They used to be emitted as literal `"auth.user"` keys.
 - `Inertia.Defer(...)` and the `DeferredProp` constructors gained an optional `rescue` parameter, and
   `DeferredProp`, `MergeProp` and `OptionalProp` now inherit their fluent modifiers from the new
-  `MergeModifiers<TSelf>` / `OnceModifiers<TSelf>` base classes. Source compatible, but code compiled against
-  2.x must be recompiled.
+  `MergeModifiers<TSelf>` / `OnceModifiers<TSelf>` base classes (themselves on top of `LiveModifiers<TSelf>`, which
+  `OnceProp` and `AlwaysProp` now derive from too). Source compatible, but code compiled against 2.x must be
+  recompiled.
 
 ## 2.1.0
 

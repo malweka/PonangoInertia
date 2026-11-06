@@ -7,6 +7,9 @@ This document defines the minimum maintenance expectations for tests and docs.
 The repository should keep an executable test suite under:
 
 - `tests/Ponango.Inertia.Tests/`
+- `tests/Ponango.Inertia.SignalR.Tests/` (the SignalR hub and broadcaster, over real hub connections)
+- `clients/inertia-signalr/test/` (the client transport, with vitest)
+- `samples/LiveProps/ClientApp/e2e/` (live props end to end in a headless browser)
 
 Coverage should include:
 - middleware behavior
@@ -21,6 +24,8 @@ Coverage should include:
 - infinite scroll metadata
 - composed prop types (deferred/merge/once/rescue) and nested dot-notation paths
 - big integer markers
+- live props (`liveProps` metadata, modifiers, broadcast payloads, `X-Socket-Id`)
+- `QUERY` requests (303 conversion, errors across redirects, no asset version check)
 - public API ergonomics
 
 When protocol behavior changes, corresponding tests should be added or updated in the same change.

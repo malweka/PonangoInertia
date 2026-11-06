@@ -32,6 +32,19 @@ public class ValidationErrorRedirectTests
     }
 
     [Fact]
+    public async Task Invalid_model_state_on_inertia_query_redirect_is_shown_on_next_page()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        test.HttpContext.Request.Method = "QUERY";
+        TestHelpers.AsInertia(test.HttpContext);
+
+        RunFilter(test, Invalid("q", "The search term is required"), new RedirectResult("/products"));
+
+        using var document = await RenderNextPageAsync(test);
+        Assert.Equal("The search term is required", Errors(document).GetProperty("q").GetString());
+    }
+
+    [Fact]
     public async Task Redirect_to_action_result_stores_errors()
     {
         using var test = TestInfrastructure.CreateContext();
@@ -287,6 +300,113 @@ public class ValidationErrorRedirectTests
         Assert.Equal("Second attempt", errors.GetProperty("name").GetString());
         Assert.False(errors.TryGetProperty("email", out _));
     }
+
+    // An empty Ok() is redirected back by the middleware after MVC has run its result filters.
+    [Fact]
+    public async Task Invalid_model_state_with_an_empty_result_is_kept_through_the_redirect_back()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        StartInertiaPost(test);
+        test.HttpContext.Request.Headers.Referer = "https://app.test/users/create";
+
+        await RunThroughMiddleware(test, Invalid("email", "Email is required"), new OkResult());
+
+        Assert.Equal(StatusCodes.Status303SeeOther, test.HttpContext.Response.StatusCode);
+        using var document = await RenderNextPageAsync(test);
+        Assert.Equal("Email is required", Errors(document).GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task Empty_result_redirect_back_keeps_the_error_bag()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        StartInertiaPost(test);
+        test.HttpContext.Request.Headers["X-Inertia-Error-Bag"] = "createUser";
+
+        await RunThroughMiddleware(test, Invalid("email", "Email is required"), new OkResult());
+
+        test.HttpContext.Request.Headers.Remove("X-Inertia-Error-Bag");
+        using var document = await RenderNextPageAsync(test);
+        Assert.Equal("Email is required",
+            Errors(document).GetProperty("createUser").GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task Explicit_FlashErrors_wins_over_model_state_on_an_empty_result()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        StartInertiaPost(test);
+
+        await new InertiaMiddleware(context =>
+        {
+            test.GetRequiredService<InertiaContext>()
+                .FlashErrors(new Dictionary<string, string> { ["email"] = "Explicit message" }, "explicitBag");
+            RunFilter(test, Invalid("email", "Automatic message"), new OkResult());
+            return new OkResult().ExecuteResultAsync(TestInfrastructure.CreateActionContext(context));
+        }).InvokeAsync(test.HttpContext);
+
+        await AssertExplicitErrorsDeliveredOnceAsync(test);
+    }
+
+    [Fact]
+    public async Task Result_with_a_body_does_not_store_errors_through_the_middleware()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        StartInertiaPost(test);
+
+        await RunThroughMiddleware(test, Invalid("email", "Email is required"), new ContentResult { Content = "nope" });
+
+        Assert.Equal(StatusCodes.Status200OK, test.HttpContext.Response.StatusCode);
+        using var document = await RenderNextPageAsync(test);
+        AssertNoErrors(document);
+    }
+
+    [Fact]
+    public async Task Empty_result_does_not_store_errors_when_capture_is_off()
+    {
+        using var test = TestInfrastructure.CreateContext(options => options.PersistValidationErrorsOnRedirect = false);
+        StartInertiaPost(test);
+
+        await RunThroughMiddleware(test, Invalid("email", "Email is required"), new OkResult());
+
+        Assert.Equal(StatusCodes.Status303SeeOther, test.HttpContext.Response.StatusCode);
+        using var document = await RenderNextPageAsync(test);
+        AssertNoErrors(document);
+    }
+
+    [Fact]
+    public async Task Empty_result_does_not_store_errors_when_it_is_not_redirected()
+    {
+        using var test = TestInfrastructure.CreateContext(options => options.RedirectEmptyResponsesBack = false);
+        StartInertiaPost(test);
+
+        await RunThroughMiddleware(test, Invalid("email", "Email is required"), new OkResult());
+
+        Assert.Equal(StatusCodes.Status200OK, test.HttpContext.Response.StatusCode);
+        using var document = await RenderNextPageAsync(test);
+        AssertNoErrors(document);
+    }
+
+    [Fact]
+    public async Task Empty_result_of_a_precognition_request_does_not_store_errors()
+    {
+        using var test = TestInfrastructure.CreateContext();
+        StartInertiaPost(test);
+        test.HttpContext.Request.Headers["Precognition"] = "true";
+
+        await RunThroughMiddleware(test, Invalid("email", "Email is required"), new OkResult());
+
+        test.HttpContext.Request.Headers.Remove("Precognition");
+        using var document = await RenderNextPageAsync(test);
+        AssertNoErrors(document);
+    }
+
+    static Task RunThroughMiddleware(TestInfrastructure.TestContext test, ModelStateDictionary modelState, IActionResult result)
+        => new InertiaMiddleware(context =>
+        {
+            RunFilter(test, modelState, result);
+            return result.ExecuteResultAsync(TestInfrastructure.CreateActionContext(context));
+        }).InvokeAsync(test.HttpContext);
 
     static async Task AssertExplicitErrorsDeliveredOnceAsync(TestInfrastructure.TestContext test)
     {

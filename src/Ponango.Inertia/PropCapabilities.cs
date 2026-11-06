@@ -105,3 +105,19 @@ internal interface IScrollMetadataProvider
     /// <summary>Returns the scroll metadata, or <c>null</c> when the prop has none.</summary>
     object? GetScrollMetadata(object? resolvedValue, bool reset);
 }
+
+/// <summary>
+/// A prop that refreshes itself when a broadcast event arrives, announced in the page object's <c>liveProps</c>.
+/// </summary>
+internal interface ILiveProp
+{
+    /// <summary>Whether <c>Live(...)</c> was called on the prop.</summary>
+    bool IsLive { get; }
+
+    /// <summary>The channels and events that refresh the prop.</summary>
+    /// <exception cref="InvalidOperationException">The live configuration is incomplete.</exception>
+    IReadOnlyList<LiveListener> LiveListeners();
+
+    /// <summary>The throttle in milliseconds, or <c>null</c> to use the client's default.</summary>
+    long? LiveThrottleMilliseconds { get; }
+}

@@ -95,6 +95,11 @@ Ponango.Inertia implements the server side of the Inertia v3 protocol for ASP.NE
   (root or nested paths, match fields), `Once` (expiry, custom keys, forced refresh), `Scroll` (page numbers or
   cursors), plus lazy delegate props. For example `Inertia.Defer(...).Once()` or
   `Inertia.Defer(...).DeepMerge()`.
+- **Live props:** props that refresh when a broadcast event arrives, `Inertia.Live(...)` or `.Live(...)`, with
+  `BroadcastPropsAsync` for event payloads and `X-Socket-Id` to skip the sender. The
+  [`Ponango.Inertia.SignalR`](./src/Ponango.Inertia.SignalR/README.md) package and the
+  [`@ponango/inertia-signalr`](./clients/inertia-signalr/README.md) client transport carry the events over SignalR
+  ([sample](./samples/LiveProps/README.md)).
 - **Nested props and dot notation:** wrappers inside nested objects, reloadable with
   `only: ['auth.notifications']`.
 - **Shared data and flash:** app-wide props through options or per request, `ShareOnce`, and flash data in
@@ -145,6 +150,7 @@ result.With("report", Inertia.Defer(() => BuildReport(), group: "dashboard", res
 result.With("stats", Inertia.Defer(() => BuildStats()).Once());
 result.With("plans", Inertia.Once(() => GetPlans()).Until(TimeSpan.FromHours(1)));
 result.With("feed", Inertia.Merge(() => feed).Append("data", matchOn: "id"));
+result.With("order", Inertia.Live(() => order, "order.updated", LiveChannel.Private($"orders.{order.Id}")));
 result.With("posts", Inertia.Scroll(
     () => page,
     ScrollMetadata.ForPage(page.CurrentPage, page.PreviousPage, page.NextPage)));
@@ -160,6 +166,7 @@ builder.Services.AddInertia(options =>
     options.PreserveBigIntegers = true; // 64-bit IDs arrive as BigInt (client 3.8.0+)
     options.WithAllErrors = false;      // true: every validation message per field, as an array
     options.PersistValidationErrorsOnRedirect = true; // keep ModelState errors across a redirect back
+    options.RedirectEmptyResponsesBack = true; // an empty 200 to an Inertia request redirects back
     options.ExposeSharedPropKeys = true; // list shared keys in sharedProps (used by instant visits)
     options.SharedData = ctx => new Dictionary<string, object>
     {

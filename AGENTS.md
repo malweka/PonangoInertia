@@ -41,6 +41,7 @@ Current capabilities include:
   - `MergeProp` (root or nested-path merging, once)
   - `OnceProp`
   - `ScrollProp` (infinite scroll)
+  - `LiveProp` (live props, `liveProps`), and `.Live(...)` on optional, deferred, once and always props
 - lazy delegate props (any delegate without parameters that returns a value)
 - nested prop types and dot-notation partial reloads
 - big integer markers (`preserveBigIntegers`)
@@ -59,9 +60,25 @@ dotnet build src/Ponango.Inertia/Ponango.Inertia.csproj -p:GeneratePackageOnBuil
 # Run the test project
 dotnet test tests/Ponango.Inertia.Tests/Ponango.Inertia.Tests.csproj -p:GeneratePackageOnBuild=false -nr:false -v:minimal
 
-# Pack the NuGet package
+# Run the SignalR package tests (in-memory server, real hub connections)
+dotnet test tests/Ponango.Inertia.SignalR.Tests/Ponango.Inertia.SignalR.Tests.csproj -nr:false -v:minimal
+
+# Pack the NuGet packages
 dotnet pack src/Ponango.Inertia/Ponango.Inertia.csproj -c Release
+dotnet pack src/Ponango.Inertia.SignalR/Ponango.Inertia.SignalR.csproj -c Release
 ```
+
+The solution `src/Ponango.Inertia/Ponango.Inertia.sln` holds both libraries and both test projects.
+
+```bash
+# The @ponango/inertia-signalr client transport (TypeScript, vitest)
+cd clients/inertia-signalr && npm ci && npm run typecheck && npm test && npm run build
+
+# Live props end to end: the LiveProps sample in headless Edge (BROWSER_CHANNEL=chrome for Chrome)
+cd samples/LiveProps/ClientApp && npm ci && npm run build && cd .. && dotnet build && cd ClientApp && npm run e2e
+```
+
+The sample links the transport from `clients/inertia-signalr`, so build the transport before the sample.
 
 If you are only validating behavior, prefer the test command over ad hoc manual checking.
 
@@ -81,7 +98,9 @@ return _inertia.Render("Users/Index", new
 
 ### Legacy rendering API
 
-The older `Inertia(...)` methods still exist for compatibility, but they are obsolete.
+The older `InertiaContext.Inertia(...)` extension still exists for compatibility, but it is obsolete.
+`InertiaController` has no `Inertia` member (removed in 3.0): a member with that name would hide the static
+`Inertia` class in derived controllers. Do not add one.
 
 ```csharp
 return _inertia.Inertia("Inertia", model, "Users/Index");
@@ -109,6 +128,8 @@ Inertia.Defer(..., group, rescue)            // .Merge() .DeepMerge() .Append() 
 Inertia.Merge(...)  / Inertia.DeepMerge(...) // .Append(path, matchOn) .Prepend(path) .MatchingOn() .Once()
 Inertia.Once(...)                            // .As() .Fresh() .Until()
 Inertia.Scroll(..., ScrollMetadata, wrapper) // .Defer() .MatchingOn()
+Inertia.Live(value, on, channel, throttle)   // .Live() (also on Optional, Defer, Once, Always; not on merge props)
+Inertia.BroadcastPropsAsync(props, event, socketId) // { "__inertia": { "props": ... } } for broadcast events
 ```
 
 `InertiaContext.ShareOnce(...)` shares a once prop. A delegate prop value without parameters (`Func<T>`, `Func<Task<T>>`) is evaluated lazily.
@@ -123,7 +144,6 @@ rendered page, and `InertiaContext.Back(fallbackUrl)` redirects to a same-host `
 - `Location(...)`
 - `Redirect(...)` (303 for non-GET requests)
 - `Back(...)` (same-host `Referer`, else the fallback URL)
-- obsolete `Inertia(...)`
 - request flags:
   - `IsInertia`
   - `IsPrefetch`
@@ -142,6 +162,7 @@ Applications should:
 - asset version mismatch handling
 - shared data middleware behavior
 - external and fragment redirect handling
+- redirecting empty responses back
 
 ## Core Architecture
 
@@ -155,6 +176,10 @@ Responsible for:
 - shared data injection from `InertiaOptions.SharedData`
 - external redirect translation to `409` + `X-Inertia-Location`
 - internal redirects to a `#fragment` URL translated to `409` + `X-Inertia-Redirect` (not for prefetch)
+- redirecting an empty `200` Inertia response back to the same-host `Referer` (`RedirectEmptyResponsesBack`); it
+  wraps the response body feature (`ResponseWriteTracker`) to see whether anything was written. The validation
+  errors filter leaves an invalid `ModelState` of a non-redirect result in `HttpContext.Items`, and the middleware
+  keeps those errors when it redirects
 - `302` to `303` conversion for non-GET Inertia redirects
 
 ### InertiaResult
@@ -195,15 +220,46 @@ A port of the reference adapter's `PropsResolver` (inertia-laravel 3.x). Respons
 - partial reload filtering with dot-path matching (`only` / `except`)
 - excluding optional/deferred props and client-held once props on full visits, while collecting their metadata
 - resolving wrappers and lazy delegates, rescuing rescuable failures into `rescuedProps`
-- collecting deferred, merge, match, scroll, and once metadata
+- collecting deferred, merge, match, scroll, once, and live metadata
+- resolving broadcast payloads (`ResolveBroadcastPropsAsync`, used by `Inertia.BroadcastPropsAsync`)
 - walking anonymous objects and string-keyed dictionaries (`PropContainers`) for nested prop types
 
 Prop behavior is described by the capability interfaces in `PropCapabilities.cs` (`IResolvableProp`,
-`IIgnoreFirstLoad`, `IDeferrableProp`, `IMergeableProp`, `IOnceableProp`, `IRescuableProp`). They are internal:
+`IIgnoreFirstLoad`, `IDeferrableProp`, `IMergeableProp`, `IOnceableProp`, `IRescuableProp`, `ILiveProp`). They are internal:
 custom prop types outside the library are not supported, so their shape can change freely. The fluent once and
 merge modifiers shared by `OptionalProp`, `DeferredProp` and `MergeProp` live in `PropModifiers.cs`
-(`OnceModifiers<TSelf>`, `MergeModifiers<TSelf>`); add a shared modifier there, not on one wrapper. When
+(`LiveModifiers<TSelf>` at the root, then `OnceModifiers<TSelf>`, `MergeModifiers<TSelf>`; `OnceProp`, `AlwaysProp`
+and `LiveProp` derive from `LiveModifiers<TSelf>` directly); add a shared modifier there, not on one wrapper. When
 adapting more reference-adapter behavior, read `src/PropsResolver.php` in inertia-laravel first and follow it.
+
+### Ponango.Inertia.SignalR
+
+`src/Ponango.Inertia.SignalR/`, a separate NuGet package that carries live events over SignalR. It has the same
+version as `Ponango.Inertia` and depends on exactly that version (`UseExactProjectReferenceVersions` in the csproj;
+`build.yml` checks the packed nuspec):
+
+- `InertiaLiveHub`: `Subscribe(type, name)` joins the group `{type}:{name}` after the channel rules in
+  `InertiaLiveOptions` allow it (public channels are open; encrypted private channels are refused);
+  `Unsubscribe(type, name)` leaves it. It reads the channel with `LiveChannel.TryParse`, never the constructor:
+  the name is already without its prefix, and removing one again would authorize and join another channel
+- `IInertiaBroadcaster` (singleton): builds the payload with `Inertia.BroadcastPropsAsync` and sends
+  `inertia(channelKey, payload)` to each channel's group, optionally excluding a socket id
+- `AddInertiaLive(...)` / `MapInertiaLive(...)`
+- `InertiaLiveProtocol` holds the names shared with the `@ponango/inertia-signalr` client transport: change both
+  packages together
+
+### @ponango/inertia-signalr
+
+`clients/inertia-signalr/`, the npm package (same version as the NuGet packages, set by the release workflow; the
+repo keeps `0.0.0-dev`). `signalR({ connection })` returns Inertia's `LiveOptions` with a `LiveChannelTransport`:
+it joins each channel once through `Subscribe(type, name)` (ref-counted), leaves it with `Unsubscribe`, routes
+`inertia(channelKey, payload)` to the channel's listeners, reports the connection status, and joins every channel
+again after a reconnect, or after a closed connection is started again, before reporting it. `keepRetrying` is a
+`withAutomaticReconnect` policy that never gives up. `@inertiajs/core` is a peer dependency used only for types; the
+SignalR connection is typed by shape. `protocol` in `src/index.ts` mirrors `InertiaLiveProtocol`.
+
+`samples/LiveProps/` is an ASP.NET Core + Vue app using all three packages; `ClientApp/e2e/run.mjs` checks it in a
+headless browser, and CI runs it.
 
 ### InertiaContext
 
@@ -283,6 +339,7 @@ Supported request headers include:
 - `X-Inertia-Error-Bag`
 - `X-Inertia-Except-Once-Props`
 - `X-Inertia-Infinite-Scroll-Merge-Intent`
+- `X-Socket-Id`
 - `Purpose`
 - `Precognition`
 - `Precognition-Validate-Only`
@@ -331,6 +388,12 @@ Current coverage includes:
 - flash data at page level (`FlashTests`)
 - validation errors across redirects and `Back()` (`ValidationErrorRedirectTests`)
 - big integers (`BigIntegerTests`)
+- `QUERY` requests (`QueryMethodTests`)
+- empty responses redirected back (`EmptyResponseTests`)
+- live props and broadcast payloads (`LivePropTests`, `BroadcastPropsTests`)
+- the SignalR hub and broadcaster, in `tests/Ponango.Inertia.SignalR.Tests/` (`InertiaLiveHubTests`)
+- the client transport, in `clients/inertia-signalr/test/` (vitest, against a fake hub connection)
+- live props end to end, in `samples/LiveProps/ClientApp/e2e/run.mjs`
 - options and conveniences (`OptionsAndConveniencesTests`)
 - external and fragment redirects
 - prefetch detection

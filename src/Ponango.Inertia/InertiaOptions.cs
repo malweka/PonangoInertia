@@ -38,6 +38,14 @@ public class InertiaOptions
     public bool PersistValidationErrorsOnRedirect { get; set; } = true;
 
     /// <summary>
+    /// When true (the default), an Inertia request whose response is an empty <c>200</c> (nothing written to the body)
+    /// is redirected back to the same-host <c>Referer</c>, else to the app root, like the reference adapter's
+    /// <c>onEmptyResponse</c>. Non-GET requests get a <c>303</c>. A body of any length, including <c>"0"</c>, a
+    /// streamed response, and other status codes such as <c>204</c> are left alone. Requires <c>UseInertia()</c>.
+    /// </summary>
+    public bool RedirectEmptyResponsesBack { get; set; } = true;
+
+    /// <summary>
     /// When true (the default), the page object lists shared prop keys in <c>sharedProps</c>, which the client uses
     /// to carry shared props over during instant visits. Set to false to omit the list; values are still sent.
     /// </summary>

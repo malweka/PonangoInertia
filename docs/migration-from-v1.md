@@ -40,7 +40,8 @@ return _inertia.Render("Users/Index", new
 });
 ```
 
-The old `Inertia(...)` methods still exist, but they are obsolete.
+The old `InertiaContext.Inertia(...)` extension still exists, but it is obsolete. `InertiaController.Inertia(...)`
+was removed in 3.0; call `Render(...)` instead.
 
 ## Initial HTML response format changed
 

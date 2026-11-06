@@ -55,7 +55,14 @@ The middleware layer must:
 - inject configured shared data
 - translate external redirects to `409` + `X-Inertia-Location`
 - translate internal redirects whose target contains a `#fragment` (non-prefetch) to `409` + `X-Inertia-Redirect`
-- convert non-GET Inertia `302` redirects to `303`
+- redirect an Inertia request answered with an empty `200` (no body bytes written, response not started) to the
+  same-host `Referer`, else to the path base root, unless `RedirectEmptyResponsesBack` is off; an invalid
+  `ModelState` of a non-GET request is kept for the next page, as for an explicit redirect
+- convert non-GET Inertia `302` redirects to `303` (`QUERY` included, as inertia-laravel 3.6 does)
+
+`QUERY` requests (a safe method with a request body, sent by Inertia.js 3.10+ clients) are non-GET for the 303
+conversion and for keeping validation errors across a redirect. The GET-only asset version check does not apply
+to them, as in the reference adapter.
 
 ## Asset version handling
 
@@ -118,6 +125,18 @@ Rules:
 - always resolved on partial reloads that select it (`X-Inertia-Except-Once-Props` is ignored there)
 - `Fresh()` forces a new value; `expiresAt` is a Unix timestamp in milliseconds or `null`
 - once behavior may also be applied to optional, deferred, and merge props
+
+### Live props
+- `liveProps` maps each live prop's dot path to `{ "listeners": [{ "channel": { "name", "type" }, "events": [...] }] }`,
+  plus `throttle` in milliseconds when set; the field is omitted when no prop is live
+- listeners are grouped by `type:name` in first-seen order, with each event once per channel; a channel given with a
+  `Live(...)` call applies only to that call's events
+- on full visits the entry is emitted even for live props excluded from the response (optional, deferred, once props
+  the client holds)
+- on partial reloads the entry is emitted for a resolved live prop that passes the data/except filters, is an always
+  prop, or is the child of a resolved parent; a rescued prop emits none
+- merge props cannot be live
+- `X-Socket-Id` is exposed as `InertiaContext.SocketId`
 
 ### MergeProp
 - contributes merge metadata (not for props listed in `X-Inertia-Reset`, nor for props excluded by a partial reload)

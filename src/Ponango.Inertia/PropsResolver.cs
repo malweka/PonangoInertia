@@ -7,7 +7,7 @@ namespace Ponango.Inertia;
 
 /// <summary>
 /// Decides which props a response includes, resolves them, and collects the page-object metadata that
-/// describes them (deferred, merge, once, scroll, rescued). Mirrors the reference adapter's
+/// describes them (deferred, merge, once, scroll, rescued, live). Mirrors the reference adapter's
 /// <c>PropsResolver</c> (inertia-laravel 3.x).
 /// </summary>
 internal sealed class PropsResolver
@@ -57,6 +57,7 @@ internal sealed class PropsResolver
     public List<string> MatchPropsOn { get; } = new();
     public Dictionary<string, object> ScrollProps { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, object> OnceProps { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, object> LiveProps { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Resolves the given props, in order, and returns the ones the response should include. Top-level keys with
@@ -106,7 +107,7 @@ internal sealed class PropsResolver
                     continue;
             }
 
-            CollectMetadata(prop, path, value);
+            CollectMetadata(prop, path, value, parentWasResolved);
 
             // Walk into dictionaries and anonymous objects that hold prop types or are targeted by a nested
             // partial path. A value that came out of a callback has already been selected, so its children
@@ -220,6 +221,11 @@ internal sealed class PropsResolver
 
     bool ExcludeFromInitialResponse(object? prop, string path)
     {
+        // Excluding a prop from the initial response never removes its live listeners: the client must listen
+        // before a deferred or optional prop is loaded.
+        if (prop is ILiveProp { IsLive: true } live)
+            CollectLive(path, live, parentWasResolved: false);
+
         // Optional and deferred props are never sent on a full visit, but still contribute their
         // deferred, merge, and once metadata.
         if (prop is IIgnoreFirstLoad)
@@ -284,7 +290,7 @@ internal sealed class PropsResolver
 
     // Any delegate without parameters that returns a value is lazy, whatever its return type: a lambda returning
     // an int is a Func<int>, which is not a Func<object>.
-    static bool IsLazy(object? value)
+    internal static bool IsLazy(object? value)
         => value is Func<object>
            || (value is Delegate && LazyDelegateTypes.GetOrAdd(value.GetType(), IsParameterlessFunction));
 
@@ -294,7 +300,7 @@ internal sealed class PropsResolver
         return invoke.GetParameters().Length == 0 && invoke.ReturnType != typeof(void);
     }
 
-    static async Task<object?> InvokeLazyAsync(object lazy)
+    internal static async Task<object?> InvokeLazyAsync(object lazy)
     {
         if (lazy is Func<object> func)
             return await UnwrapTaskAsync(func());
@@ -342,7 +348,7 @@ internal sealed class PropsResolver
         return type.GetProperty(nameof(Task<object>.Result))!.GetValue(task);
     }
 
-    void CollectMetadata(object? prop, string path, object? resolvedValue)
+    void CollectMetadata(object? prop, string path, object? resolvedValue, bool parentWasResolved)
     {
         if (prop is IMergeableProp { ShouldMerge: true } mergeable)
             CollectMergeable(path, mergeable);
@@ -353,6 +359,9 @@ internal sealed class PropsResolver
 
         if (prop is IOnceableProp { ShouldResolveOnce: true } onceable)
             CollectOnce(path, onceable);
+
+        if (prop is ILiveProp { IsLive: true } live)
+            CollectLive(path, live, parentWasResolved);
     }
 
     void AddDeferred(string group, string path)
@@ -414,6 +423,75 @@ internal sealed class PropsResolver
             ["prop"] = path,
             ["expiresAt"] = prop.ExpiresAtMilliseconds()
         };
+    }
+
+    // Emitted on every response that includes the prop, so a partial reload keeps the listeners it refreshed up to
+    // date. Props that resolve outside the partial filters (always props, children of a resolved parent) refresh
+    // their listeners with them.
+    void CollectLive(string path, ILiveProp prop, bool parentWasResolved)
+    {
+        if (_isPartial
+            && !BypassesPartialFiltering(prop, parentWasResolved)
+            && !IsIncludedInPartialMetadata(path))
+            return;
+
+        var entry = new Dictionary<string, object>(StringComparer.Ordinal)
+        {
+            ["listeners"] = prop.LiveListeners().Select(listener => listener.ToMetadata()).ToList()
+        };
+
+        if (prop.LiveThrottleMilliseconds is { } throttle)
+            entry["throttle"] = throttle;
+
+        LiveProps[path] = entry;
+    }
+
+    static bool BypassesPartialFiltering(object? prop, bool parentWasResolved)
+        => prop is AlwaysProp || parentWasResolved;
+
+    /// <summary>
+    /// Resolves the props of a broadcast payload (<c>Inertia.BroadcastPropsAsync</c>), as the reference adapter's
+    /// <c>resolveBroadcastProps</c> does: every value is resolved, rescued props are left out, nested containers that
+    /// hold prop types are walked, and dot-notation keys stay flat.
+    /// </summary>
+    public async Task<Dictionary<string, object?>> ResolveBroadcastPropsAsync(object props)
+    {
+        if (!PropContainers.IsContainer(props))
+            throw new ArgumentException(
+                "Broadcast props must be an anonymous object or a dictionary with string keys.", nameof(props));
+
+        return await ResolveBroadcastPropsAsync(_containers.Entries(props), prefix: "", depth: 0);
+    }
+
+    async Task<Dictionary<string, object?>> ResolveBroadcastPropsAsync(
+        IEnumerable<KeyValuePair<string, object?>> props,
+        string prefix,
+        int depth)
+    {
+        var result = new Dictionary<string, object?>(StringComparer.Ordinal);
+
+        foreach (var (key, prop) in props)
+        {
+            var path = prefix.Length == 0 ? key : $"{prefix}.{key}";
+
+            var (resolved, value) = await TryResolveValueAsync(prop, path);
+            if (!resolved)
+                continue;
+
+            if (!ReferenceEquals(value, prop) && value is IResolvableProp)
+            {
+                (resolved, value) = await TryResolveValueAsync(value, path);
+                if (!resolved)
+                    continue;
+            }
+
+            result[key] = depth < MaxDepth && PropContainers.IsContainer(value)
+                                         && NeedsResolution(value!, path, childrenBypassFilters: true, depth)
+                ? await ResolveBroadcastPropsAsync(_containers.Entries(value!), path, depth + 1)
+                : value;
+        }
+
+        return result;
     }
 
     bool IsIncludedInPartialMetadata(string path)

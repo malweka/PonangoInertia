@@ -20,7 +20,9 @@ Legacy API:
 return _inertia.Inertia("Inertia", model, "Users/Index");
 ```
 
-The legacy `Inertia(...)` methods are still available, but they are marked obsolete in favor of `Render(...)`.
+The legacy `InertiaContext.Inertia(...)` extension is still available, but it is marked obsolete in favor of
+`Render(...)`. `InertiaController.Inertia(...)` was removed in 3.0: its name hid the static `Inertia` class in
+derived controllers.
 
 ## Shared data
 
@@ -278,6 +280,68 @@ result.With("categories", Inertia.Optional(() => _categories.All()).Once());    
 
 A deferred prop that the client already remembers is not announced in `deferredProps` again.
 
+### Live props
+
+A live prop refreshes itself when a broadcast event arrives (Inertia.js 3.11). The page object's `liveProps`
+lists, per prop path, the channels and events to listen to. When an event arrives, the client either reloads
+the prop with a partial reload, or takes its new value from the event payload.
+
+```csharp
+result.With("order", Inertia.Live(() => _orders.Find(id), "order.updated", LiveChannel.Private($"orders.{id}")));
+result.With("activity", Inertia.Defer(() => _activity.For(id)).Live("activity.logged", $"orders.{id}"));
+result.With("stats", Inertia.Always(() => _stats.Today()).Live(new[] { "order.created", "order.cancelled" }, "dashboard",
+    throttle: TimeSpan.FromSeconds(4)));
+```
+
+- `Inertia.Live(value, on, channel)` creates a live prop; `.Live(...)` makes an optional, deferred, once or always
+  prop live and keeps its other behavior. Calls add up, and `throttle` keeps the last value given.
+- A string channel is public. Use `LiveChannel.Private(...)`, `LiveChannel.Presence(...)` or
+  `LiveChannel.EncryptedPrivate(...)` for the others. A Laravel-style prefix (`private-orders.1`) is removed,
+  since the type is sent separately. A server transport reads the channels clients send with
+  `LiveChannel.TryParse(type, name)`, which keeps the name as sent.
+- Merge props cannot be live: `Live(...)` on a merging prop, or a merge modifier on a live prop, throws.
+- A deferred or optional live prop still announces its listeners on the full visit, so the client listens before
+  the prop is loaded. On a partial reload a live prop's entry is sent when the prop is selected, is an always
+  prop, or belongs to a selected parent.
+
+Instead of repeating event and channel names, describe an event once with `ILiveEvent`, and use the same type when
+you broadcast it:
+
+```csharp
+public sealed class OrderUpdated(Order order) : ILiveEvent
+{
+    public string EventName => "order.updated";
+    public IEnumerable<LiveChannel> Channels => new[] { LiveChannel.Private($"orders.{order.Id}") };
+}
+
+result.With("order", Inertia.Live(() => order, new OrderUpdated(order)));
+```
+
+To send values in the event instead of letting every client reload, build the payload with
+`Inertia.BroadcastPropsAsync`:
+
+```csharp
+var payload = await Inertia.BroadcastPropsAsync(new { order }, @event: "order.updated");
+// { "__inertia": { "props": { "order": { ... } }, "event": "order.updated" } }
+```
+
+Values are resolved like page props, rescued props are left out, and keys are prop paths (send a nested live prop
+as `["auth.order"] = ...`). Every subscriber receives the same payload, so only send values that are the same for
+everyone; let user-specific props reload instead.
+
+The client sends its broadcaster connection id in `X-Socket-Id`. Read it with `InertiaContext.SocketId` (or
+`SocketId` in an `InertiaController`) to skip notifying the connection that caused a change.
+
+Live props need a broadcaster and a client transport. Ponango.Inertia emits the metadata and builds payloads, and
+works with any broadcaster:
+
+- **SignalR:** the `Ponango.Inertia.SignalR` package provides the hub (with per-channel authorization) and an
+  `IInertiaBroadcaster`; the [`@ponango/inertia-signalr`](../clients/inertia-signalr/README.md) client transport
+  connects to it. See the [package README](../src/Ponango.Inertia.SignalR/README.md) and the
+  [LiveProps sample](../samples/LiveProps/README.md).
+- **A Pusher-protocol service** (Pusher, Ably, Soketi): use the client's built-in `pusher()` transport, and send
+  events with the service's .NET SDK and a `BroadcastPropsAsync` payload.
+
 ## Partial reloads
 
 The adapter supports:
@@ -516,6 +580,35 @@ Requirements and notes:
   action parameter or model property like any other number.
 - The `useHttp` hook does not handle `BigInt`; convert those values to strings before sending them.
 
+## QUERY requests
+
+Inertia.js 3.10 added the `QUERY` HTTP method: safe and idempotent like `GET`, but the data goes in the request
+body, so long search filters don't have to fit in a URL. The client sends it from `router.query(...)`,
+`<Link method="query">`, `<Form method="query">`, `form.query()` and `http.query()`. A page rendered by a `QUERY`
+visit remembers its body, so partial reloads, deferred props, polling and infinite scroll send it again.
+
+Kestrel and ASP.NET Core routing accept `QUERY` like any other method. Route it explicitly:
+
+```csharp
+[AcceptVerbs("QUERY")]
+[Route("/products/search")]
+public IActionResult Search([FromBody] ProductSearch search)
+    => _inertia.Render("Products/Index", new { search, results = _products.Find(search) });
+```
+
+Minimal API endpoints use `app.MapMethods("/products/search", new[] { "QUERY" }, ...)`.
+
+- Bind the body with `[FromBody]` (the client sends JSON) or `[FromForm]` when the form contains files.
+- Antiforgery: `AutoValidateAntiforgeryToken` only skips `GET`, `HEAD`, `OPTIONS` and `TRACE`, so `QUERY`
+  requests are validated like a `POST`. Configure the `X-XSRF-TOKEN` header as described in
+  [CSRF protection](./compatibility.md#server-features). Since client 3.9.1 the header is only sent to
+  same-origin URLs.
+- For the protocol `QUERY` counts as a non-GET request: a redirect becomes `303`, and validation errors of an
+  invalid `ModelState` are kept across the redirect. The asset version is only checked on `GET`, as in the
+  reference adapter.
+- IIS request filtering and some proxies only allow listed methods. If `QUERY` requests fail before reaching the
+  app, allow the method there.
+
 ## External redirects
 
 Use `Location(...)` for an external navigation response:
@@ -532,7 +625,27 @@ The middleware also rewrites redirects returned during Inertia requests:
 |---|---|
 | External URL (another host or port), with or without a fragment | `409` + `X-Inertia-Location` (the client does a full `window.location` visit) |
 | Internal URL containing a `#fragment` (not a prefetch) | `409` + `X-Inertia-Redirect` (the client makes a fresh Inertia visit and keeps the fragment) |
-| Any other `302` after a non-GET request | `303` |
+| Any other `302` after a non-GET request (`QUERY` included) | `303` |
+
+### Empty responses redirect back
+
+An Inertia request answered with an empty `200` is redirected back to the page it came from, as in the reference
+adapter. An action that only does some work can return `Ok()` (or nothing) and the client still lands on a page:
+
+```csharp
+[HttpPost("/notifications/read")]
+public IActionResult MarkAllRead()
+{
+    _notifications.MarkAllRead(User);
+    return Ok();   // 303 to the same-host Referer, else to the app root
+}
+```
+
+The target follows the same rules as `Back()`: the `Referer` when it is on this host, else the app root (with its
+path base). Only a `200` with nothing written to the body counts: a body of any length (even `"0"`), a streamed
+response and other status codes such as `204` are left alone. Flash data, errors stored with `FlashErrors(...)` and
+an invalid `ModelState` of a non-GET request survive the redirect, as they do with `Back()`. Set
+`InertiaOptions.RedirectEmptyResponsesBack = false` to turn it off.
 
 ## Asset version mismatches
 

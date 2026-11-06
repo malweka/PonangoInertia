@@ -59,12 +59,20 @@ public class ApiErgonomicsTests
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Single(method => method.Name == "Inertia");
 
-        var controllerMethod = typeof(InertiaController)
-            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-            .Single(method => method.Name == "Inertia");
-
         Assert.NotNull(contextMethod.GetCustomAttribute<ObsoleteAttribute>());
-        Assert.NotNull(controllerMethod.GetCustomAttribute<ObsoleteAttribute>());
+    }
+
+    // A member named "Inertia" on InertiaController would hide the static Inertia class in derived controllers, so
+    // Inertia.Defer(...) would not compile there. This test compiling is most of the check.
+    [Fact]
+    public void Static_inertia_factories_are_usable_inside_an_inertia_controller()
+    {
+        Assert.Empty(typeof(InertiaController).GetMember("Inertia", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static));
+
+        var props = new FactoryController().Props();
+
+        Assert.IsType<DeferredProp>(props.Deferred);
+        Assert.IsType<LiveProp>(props.Live);
     }
 
     [Fact]
@@ -94,9 +102,12 @@ public class ApiErgonomicsTests
 
         var renderResult = controller.Render("Users/Index", new { users = new[] { "alice" } });
         Assert.True(renderResult.Props.ContainsKey("users"));
+    }
 
-        var legacyResult = controller.Inertia("Inertia", new { }, component: null);
-        Assert.Equal("Admin/Users/Index", legacyResult.Component);
+    private sealed class FactoryController : InertiaController
+    {
+        public (object Deferred, object Live) Props()
+            => (Inertia.Defer(() => 1), Inertia.Live(() => 1, "order.updated", "orders"));
     }
 
     private sealed class TestInertiaController : InertiaController

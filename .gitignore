@@ -378,3 +378,7 @@ NuGet.Config
 
 # Local working notes (session hand-off context), never committed
 ai/tmp/
+
+# JavaScript build output (clients/ and the samples)
+clients/*/dist/
+samples/*/wwwroot/build/

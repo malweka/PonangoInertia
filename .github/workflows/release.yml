@@ -7,7 +7,8 @@ name: release
 #                          never become a release.
 #   push tag v*.*.*     -> build, test, pack, PUSH TO NUGET.ORG and create the GitHub Release.
 #
-# Single-package repo, so both live in one workflow rather than the three PonaCms uses.
+# All three packages (Ponango.Inertia and Ponango.Inertia.SignalR on nuget.org, @ponango/inertia-signalr on npm)
+# ship together with the version from the ref, so both live in one workflow rather than the three PonaCms uses.
 on:
   push:
     branches: ['release/**']
@@ -125,13 +126,38 @@ jobs:
       - name: Test
         run: dotnet test src/Ponango.Inertia/Ponango.Inertia.sln -c Release --no-build --nologo
 
+      # Both packages ship with the same version. Ponango.Inertia.SignalR depends on Ponango.Inertia at that version.
       - name: Pack
         run: |
-          dotnet pack src/Ponango.Inertia/Ponango.Inertia.csproj -c Release --no-build --nologo -o artifacts \
-            -p:Version=${{ steps.v.outputs.version }} \
-            -p:FileVersion=${{ steps.v.outputs.file_version }} \
-            -p:AssemblyVersion=${{ steps.v.outputs.assembly_version }}
+          for project in src/Ponango.Inertia/Ponango.Inertia.csproj src/Ponango.Inertia.SignalR/Ponango.Inertia.SignalR.csproj; do
+            dotnet pack "$project" -c Release --no-build --nologo -o artifacts \
+              -p:Version=${{ steps.v.outputs.version }} \
+              -p:FileVersion=${{ steps.v.outputs.file_version }} \
+              -p:AssemblyVersion=${{ steps.v.outputs.assembly_version }}
+          done
           ls -l artifacts
+
+      # npm trusted publishing (OIDC, no token) needs npm 11.5.1 or later, which Node 24 ships.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # The npm package gets the same version as the NuGet packages. Only the tarball is versioned here; the
+      # package.json in the repo keeps 0.0.0-dev.
+      - name: Pack npm package
+        working-directory: clients/inertia-signalr
+        run: |
+          set -euo pipefail
+          npm --version
+          npm ci
+          npm version "${{ steps.v.outputs.version }}" --no-git-tag-version
+          npm run typecheck
+          npm test
+          npm run build
+          npm pack --pack-destination ../../artifacts
+          ls -l ../../artifacts
 
       # ---- Candidate: keep the package, publish nothing ----
       - name: Upload release candidate
@@ -168,6 +194,24 @@ jobs:
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
+      # Trusted publishing: the package's settings on npmjs.com must name this repository and `release.yml`.
+      # npm only offers that for a package that already exists, so the very first version is published by hand
+      # (see scripts/release.sh). A version already on npm is skipped, which also makes a re-run idempotent.
+      # Pre-releases go to the `next` dist-tag, so `npm install` keeps resolving the latest stable version.
+      - name: Publish to npm
+        if: steps.v.outputs.publish == 'true'
+        working-directory: clients/inertia-signalr
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.v.outputs.version }}"
+          if npm view "@ponango/inertia-signalr@$VERSION" version >/dev/null 2>&1; then
+            echo "@ponango/inertia-signalr@$VERSION is already on npm, skipping"
+            exit 0
+          fi
+          TAG=latest
+          if [ "${{ steps.v.outputs.prerelease }}" = "true" ]; then TAG=next; fi
+          npm publish --access public --tag "$TAG" --ignore-scripts
+
       - name: Create GitHub Release
         if: steps.v.outputs.publish == 'true'
         env:
@@ -175,7 +219,7 @@ jobs:
         run: |
           FLAGS=()
           if [ "${{ steps.v.outputs.prerelease }}" = "true" ]; then FLAGS+=(--prerelease); fi
-          gh release create "${{ github.ref_name }}" artifacts/*.nupkg \
+          gh release create "${{ github.ref_name }}" artifacts/*.nupkg artifacts/*.tgz \
             --title "${{ github.ref_name }}" \
             --generate-notes \
             "${FLAGS[@]}"

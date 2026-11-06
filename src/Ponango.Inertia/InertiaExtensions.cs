@@ -114,7 +114,7 @@ namespace Ponango.Inertia
         /// The referer's path and query when it points at this host, else <paramref name="fallbackUrl"/>. Never
         /// another host, so the referer can't be used as an open redirect.
         /// </summary>
-        static string ResolveBackUrl(HttpRequest? request, string fallbackUrl)
+        internal static string ResolveBackUrl(HttpRequest? request, string fallbackUrl)
         {
             var referer = request?.Headers.Referer.ToString();
             if (request == null || string.IsNullOrEmpty(referer))

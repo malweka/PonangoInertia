@@ -139,6 +139,22 @@ now delivered in `props.errors` of the next rendered page. They used to be dropp
 with `WithErrors(...)` are unaffected. To keep the old behavior, set
 `options.PersistValidationErrorsOnRedirect = false`.
 
+## 13. `InertiaController.Inertia(...)` was removed
+
+The obsolete `Inertia(viewName, model, component, assetVersion)` method of `InertiaController` is gone. Its name
+hid the static `Inertia` class inside every derived controller, so `Inertia.Defer(...)` or `Inertia.Live(...)`
+did not compile there. Replace it with `Render(component, props)`:
+
+```csharp
+// before
+return Inertia("Inertia", model);                       // component derived from the route
+// after
+return Render("Users/Index", new { users = model.Users });
+```
+
+`Render` takes the component name explicitly; the route-based default (`Area/Controller/Action`) is not carried
+over. The obsolete `InertiaContext.Inertia(...)` extension is unchanged.
+
 ## New features worth adopting
 
 - Combine prop types: `Inertia.Defer(...).Once()`, `Inertia.Defer(...).DeepMerge()`, `Inertia.Merge(...).Once()`,

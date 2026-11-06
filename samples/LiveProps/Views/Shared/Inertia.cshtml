@@ -1,0 +1,14 @@
+@using Ponango.Inertia
+@inject IJsonSerializerOptionBuilder Serializer
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live props sample</title>
+</head>
+<body>
+    @Html.InertiaRender(Serializer)
+    <script type="module" src="/build/app.js"></script>
+</body>
+</html>

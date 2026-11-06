@@ -67,7 +67,8 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
   `Ponango.Inertia` and depends on exactly that version.
 - New npm package `@ponango/inertia-signalr`: the client transport for `Ponango.Inertia.SignalR`
   (`createInertiaApp({ live: signalR({ connection }) })`). It joins and leaves channels through the hub, and
-  rejoins them after a reconnect. Same version as the NuGet packages; pre-releases use the `next` dist-tag.
+  rejoins them after a reconnect or a restart of a closed connection. `keepRetrying` is a reconnect policy that
+  never gives up. Same version as the NuGet packages; pre-releases use the `next` dist-tag.
 - `samples/LiveProps`: an ASP.NET Core + Vue app with live props over SignalR, checked end to end in CI.
 
 ### Changed

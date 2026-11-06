@@ -89,9 +89,9 @@ npm install @ponango/inertia-signalr @microsoft/signalr
 
 ```js
 import { HubConnectionBuilder } from '@microsoft/signalr'
-import { signalR } from '@ponango/inertia-signalr'
+import { keepRetrying, signalR } from '@ponango/inertia-signalr'
 
-const connection = new HubConnectionBuilder().withUrl('/inertia/live').withAutomaticReconnect().build()
+const connection = new HubConnectionBuilder().withUrl('/inertia/live').withAutomaticReconnect(keepRetrying).build()
 
 createInertiaApp({
   live: signalR({ connection }),
@@ -112,4 +112,4 @@ for its options. A working app is in
 | server → client | `inertia(channelKey, payload)` | `channelKey` is `{type}:{name}`; `payload` is `{ "__inertia": { "event": "...", "props": { ... } } }` |
 
 SignalR drops a connection's groups when it reconnects, so a transport subscribes to its channels again after a
-reconnect. The names are constants in `InertiaLiveProtocol`.
+reconnect, and after a closed connection is started again. The names are constants in `InertiaLiveProtocol`.

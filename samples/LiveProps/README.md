@@ -32,4 +32,4 @@ cd samples/LiveProps && dotnet build && cd ClientApp && npm run e2e
 
 `e2e/run.mjs` starts the sample, drives a headless Microsoft Edge (set `BROWSER_CHANNEL=chrome` for Chrome) and
 checks reloads, values in events, private channel refusal, sender exclusion with `X-Socket-Id`, and rejoining after
-the server restarts. CI runs it on every pull request.
+the server restarts and after the app stops and starts the connection. CI runs it on every pull request.

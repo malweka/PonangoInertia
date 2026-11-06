@@ -149,6 +149,20 @@ async function main() {
       await fetch(`${base}/simulate/order`, { method: 'POST' })
       await waitForText(alice, 'revision', 1)
     })
+
+    // A closed connection fires no reconnect callback when it is started again; the transport must notice and rejoin.
+    await check('after the app stops and starts the connection, the transport rejoins its channels', async () => {
+      const before = Number(await text(alice, 'revision'))
+      await alice.evaluate(async () => {
+        await window.liveConnection.stop()
+        await window.liveConnection.start()
+      })
+      // The transport polls a closed connection every 250 ms, then joins its channels again.
+      await sleep(1000)
+
+      await fetch(`${base}/simulate/order`, { method: 'POST' })
+      await waitForText(alice, 'revision', before + 1)
+    })
   } finally {
     await browser.close()
     await stopServer()

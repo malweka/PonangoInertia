@@ -1,6 +1,6 @@
 import type { LiveChannel, LiveChannelTransport } from '@inertiajs/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { channelKey, protocol, signalR, type SignalRConnection } from '../src/index'
+import { channelKey, keepRetrying, protocol, signalR, type SignalRConnection } from '../src/index'
 
 type Deferred = { resolve: (value?: unknown) => void; reject: (error: unknown) => void }
 
@@ -371,6 +371,75 @@ describe('connection state', () => {
     expect(statuses).toEqual([true, false])
   })
 
+  it('rejoins every channel when the app starts a closed connection again', async () => {
+    const statuses: boolean[] = []
+    transport.onStatusChange!((connected) => statuses.push(connected))
+    transport.subscribeToChannel(orders, () => {})
+    transport.subscribeToChannel(dashboard, () => {})
+    await flush()
+    connection.close()
+
+    connection.autoResolve = false
+    await connection.start()
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(connection.calls('Subscribe')).toHaveLength(4)
+    expect(statuses).toEqual([true, false])
+
+    connection.invocations.slice(2).forEach((invocation) => invocation.deferred.resolve())
+    await flush()
+    expect(statuses).toEqual([true, false, true])
+  })
+
+  it('rejoins every channel when a new channel starts a closed connection again', async () => {
+    const statuses: boolean[] = []
+    transport.onStatusChange!((connected) => statuses.push(connected))
+    transport.subscribeToChannel(orders, () => {})
+    await flush()
+    connection.close()
+
+    connection.autoResolve = false
+    transport.subscribeToChannel(dashboard, () => {})
+    await flush()
+
+    expect(connection.starts).toBe(2)
+    // orders before the close and again after it, dashboard once
+    const calls = connection.calls('Subscribe')
+    expect(calls).toHaveLength(3)
+    expect(calls.filter(([, name]) => name === 'orders.1')).toHaveLength(2)
+    expect(calls.filter(([, name]) => name === 'dashboard')).toHaveLength(1)
+    expect(statuses).toEqual([true, false])
+
+    connection.invocations.slice(1).forEach((invocation) => invocation.deferred.resolve())
+    await flush()
+    expect(statuses).toEqual([true, false, true])
+  })
+
+  it('does not start a closed connection by itself', async () => {
+    const statuses: boolean[] = []
+    transport.onStatusChange!((connected) => statuses.push(connected))
+    transport.subscribeToChannel(orders, () => {})
+    await flush()
+
+    connection.close()
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(connection.starts).toBe(1)
+    expect(statuses).toEqual([true, false])
+  })
+
+  it('stops watching a closed connection once no channel is left', async () => {
+    const release = transport.subscribeToChannel(orders, () => {})
+    await flush()
+    connection.close()
+    release()
+
+    await connection.start()
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(connection.calls('Subscribe')).toHaveLength(1)
+  })
+
   it('stops reporting once Inertia unregisters', async () => {
     const statuses: boolean[] = []
     const off = transport.onStatusChange!((connected) => statuses.push(connected))
@@ -470,6 +539,14 @@ describe('options', () => {
 
     expect(options.throttle).toBe(1000)
     expect(options.pauseWhenHidden).toBe(false)
+  })
+
+  it('offers a retry policy that never gives up', () => {
+    const delays = [0, 1, 2, 3, 4, 50].map((previousRetryCount) =>
+      keepRetrying.nextRetryDelayInMilliseconds({ previousRetryCount }),
+    )
+
+    expect(delays).toEqual([0, 2000, 5000, 10000, 30000, 30000])
   })
 
   it('uses the hub contract of Ponango.Inertia.SignalR', () => {

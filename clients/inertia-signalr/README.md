@@ -21,11 +21,11 @@ It works with `@inertiajs/vue3`, `@inertiajs/react` and `@inertiajs/svelte` 3.11
 ```js
 import { createInertiaApp } from '@inertiajs/vue3'
 import { HubConnectionBuilder } from '@microsoft/signalr'
-import { signalR } from '@ponango/inertia-signalr'
+import { keepRetrying, signalR } from '@ponango/inertia-signalr'
 
 const connection = new HubConnectionBuilder()
   .withUrl('/inertia/live')        // the hub mapped by MapInertiaLive()
-  .withAutomaticReconnect()
+  .withAutomaticReconnect(keepRetrying)
   .build()
 
 createInertiaApp({
@@ -69,11 +69,12 @@ for declaring live props and broadcasting events.
 - SignalR drops a connection's groups when it reconnects. After a reconnect the transport joins every channel
   again, then tells Inertia the connection is back, and Inertia refreshes every live prop, since events may have
   been missed.
+- The same happens when a closed connection is started again: by your own `connection.start()`, or by the
+  transport when a page needs a new channel.
 
-`withAutomaticReconnect()` gives up after four attempts by default. To keep trying, pass a retry policy:
+### Reconnecting
 
-```js
-.withAutomaticReconnect({ nextRetryDelayInMilliseconds: () => 5000 })
-```
-
-A connection you stop and start again yourself is not rejoined: rely on automatic reconnects instead.
+`withAutomaticReconnect()` gives up after four attempts by default (about 42 seconds), and the connection then
+stays closed until something starts it again: a laptop waking from sleep outlasts that. `keepRetrying` is a retry
+policy that never gives up: it tries after 0, 2, 5 and 10 seconds, then every 30 seconds. Any other
+`IRetryPolicy` works too.

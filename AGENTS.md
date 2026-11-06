@@ -254,7 +254,8 @@ version as `Ponango.Inertia` and depends on exactly that version (`UseExactProje
 repo keeps `0.0.0-dev`). `signalR({ connection })` returns Inertia's `LiveOptions` with a `LiveChannelTransport`:
 it joins each channel once through `Subscribe(type, name)` (ref-counted), leaves it with `Unsubscribe`, routes
 `inertia(channelKey, payload)` to the channel's listeners, reports the connection status, and joins every channel
-again after a reconnect before reporting it. `@inertiajs/core` is a peer dependency used only for types; the
+again after a reconnect, or after a closed connection is started again, before reporting it. `keepRetrying` is a
+`withAutomaticReconnect` policy that never gives up. `@inertiajs/core` is a peer dependency used only for types; the
 SignalR connection is typed by shape. `protocol` in `src/index.ts` mirrors `InertiaLiveProtocol`.
 
 `samples/LiveProps/` is an ASP.NET Core + Vue app using all three packages; `ClientApp/e2e/run.mjs` checks it in a

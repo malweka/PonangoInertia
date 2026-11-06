@@ -79,7 +79,9 @@ await broadcaster.BroadcastAsync(new OrderUpdated(order), new { order = OrderDto
 ### Several servers
 
 Use a SignalR backplane so every server sees every group: `builder.Services.AddInertiaLive(...).AddStackExchangeRedis(...)`
-or Azure SignalR Service. `AddInertiaLive` returns the SignalR builder for this.
+or Azure SignalR Service. `AddInertiaLive` returns the SignalR builder for this. Proxies, sticky sessions,
+Azure Container Apps and OpenShift are covered in
+[Hosting](https://github.com/malweka/PonangoInertia/blob/main/docs/hosting.md).
 
 ## Client
 

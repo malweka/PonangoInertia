@@ -15,6 +15,8 @@ Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`), a
 
 ### Added
 
+- `docs/hosting.md`: forwarded headers, shared Data Protection keys, live props on several instances, Azure
+  Container Apps and OpenShift.
 - `docs/compatibility.md`: feature-by-feature compatibility tables against the current Inertia.js release, and a README
   overview of Inertia and of what the adapter provides.
 - Version-mismatch `409` responses now echo the current asset version in `X-Inertia-Version`.

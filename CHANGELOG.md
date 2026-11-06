@@ -4,9 +4,14 @@
 
 Aligns the adapter with the current Inertia.js v3 protocol. See [docs/upgrading-to-3.0.md](docs/upgrading-to-3.0.md).
 
-Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`):
+Pre-releases on nuget.org (`dotnet add package Ponango.Inertia --prerelease`), and from beta.3 on npm
+(`npm install @ponango/inertia-signalr@next`):
 
-- `3.0.0-beta.1` (2026-10-06): everything below.
+- `3.0.0-beta.3` (2026-11-05): QUERY requests, empty responses redirected back, live props, and the new
+  `Ponango.Inertia.SignalR` and `@ponango/inertia-signalr` packages. All three packages share this version.
+- `3.0.0-beta.2`: not released. The npm version of that number is an early build of the client transport,
+  published by hand to set up npm, and is deprecated.
+- `3.0.0-beta.1` (2026-10-06): everything below up to live props.
 
 ### Added
 

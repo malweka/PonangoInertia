@@ -8,15 +8,13 @@
 # A tag publishes all three packages with one version: Ponango.Inertia and Ponango.Inertia.SignalR to nuget.org,
 # @ponango/inertia-signalr to npm (pre-releases under the `next` dist-tag).
 #
-# ONE-TIME npm setup: npm trusted publishing can only be configured on a package that already exists. Before the
-# first `publish`, once the candidate is green, publish that version by hand from the release branch:
+# npm: @ponango/inertia-signalr publishes through npm trusted publishing (OIDC, no token). The package's settings
+# on npmjs.com (Settings > Trusted publishing) name GitHub Actions, repository malweka/PonangoInertia, workflow
+# release.yml. npm only offers that for an existing package, so the first version (3.0.0-beta.2, an early build,
+# deprecated) was published by hand. The workflow skips a version already on npm.
 #
-#     cd clients/inertia-signalr && npm ci && npm version 3.0.0-beta.2 --no-git-tag-version
-#     npm publish --access public --tag next      # --tag next for a pre-release; needs `npm login` to @ponango
-#     git checkout package.json package-lock.json
-#
-# then on npmjs.com, package Settings > Trusted publishing: GitHub Actions, repository malweka/PonangoInertia,
-# workflow release.yml. The tag's workflow then skips the version already on npm and publishes later ones itself.
+# A pre-release goes to the `next` dist-tag. `latest` still points at the hand-published 3.0.0-beta.2 until a
+# stable release; move it after a pre-release with: npm dist-tag add @ponango/inertia-signalr@VERSION latest
 #
 # Pre-releases work the same way with a SemVer suffix: `cut 3.0.0-beta.1` pushes release/3.0.0-beta.1,
 # `publish 3.0.0-beta.1` pushes tag v3.0.0-beta.1, and CI marks the GitHub Release as a pre-release.
